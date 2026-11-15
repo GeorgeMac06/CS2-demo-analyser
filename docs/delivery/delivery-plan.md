@@ -27,7 +27,13 @@
 <br>• Tried on the 4 real demos through the UI in a dev workspace: proposed the scouted team's name and its 5 core players, 91 rounds, stats and heatmaps render. Heatmap colours changed to yellow-orange-red, capped at the 95th percentile, after a visual check showed the first scale was too dark.
 <br>Gates: G-fast 89 tests (~3 min), G-demos 17 (~5 min), G-browser 2 (~20 s). All pass.
 <br>**M1 owner review (G-manual): passed** (2026-11-15). The owner ran the real app on their own demos: "everything looks good so far".
-<br>**Next:** WU-10..12 (pattern mining) and WU-14 (export). P-6 (radar image licence) is still open before any export is shared. |
+<br>**WU-10..12 done** (2026-11-15), committed and pushed per WU:
+<br>• WU-10 T side: setups at 0:15/0:30/0:45, site hit (plant, else 3+ on site; otherwise "unresolved", never guessed), tempo, strategy clusters, buy-round tendencies, post-plants, fakes.
+<br>• WU-11 CT side: positions at 0:20, setups, A/B stacks, early duels, rotations after enemy contact, retakes and saves.
+<br>• WU-12: grenade lineups, opening-duel habits, weapon per buy, clutches, suggested roles shown with their metrics.
+<br>• Patterns are mined once per version (`patterns.json`, stable keys) and recounted for every filter.
+<br>• Tuned on the 4 real demos. Bugs fixed: round windows built per side (the last T round absorbed second-half plants); weapons looked up at the wrong tick. Retakes now also count a team death on the planted site's approach. Strategies and setups are compared by side of the map. BackAlley and House were mapped to B from evidence. **Q2 changed to 10% + 2 demos** (see requirements Q2).
+<br>**Next:** WU-13 (pattern identity, labels and pattern UI → M2), then WU-14 (export). P-6 (radar image licence) is still open before any export is shared.|
 | Outcome | The owner can import N demos of one team on one map. They can explore team and player patterns with support counts, and export a brief for teammates. The AI summary is optional. |
 
 **What this plan covers:**

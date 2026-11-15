@@ -16,6 +16,7 @@ CT half (positions at 0:20)
     r17-r18 enemy takes A at 0:25, plants 0:28; a1 a2 on A: retake attempt, lost
     r19     enemy takes B, plants 0:28; a4 a5 leave for CTSpawn at 0:26: no retake, a save
     r22-r24 a3 wins an early duel at 0:10 on A (aggression)
+Always: a4 plays the AWP.
 """
 
 from __future__ import annotations
@@ -100,4 +101,5 @@ def scouted_match(opp_prefix: str, server: str) -> dict:
         rnd.setdefault("duration", 60)
         rounds.append(rnd)
     return {"map": "de_mirage", "server": server, "lineups": {"A": TEAM, "B": opp},
-            "clan": {"A": "Scouted", "B": f"Opp {opp_prefix}"}, "rounds": rounds}  # fmt: skip
+            "clan": {"A": "Scouted", "B": f"Opp {opp_prefix}"}, "rounds": rounds,
+            "weapons": {TEAM[3]: "awp"}}  # fmt: skip

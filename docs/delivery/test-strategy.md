@@ -108,4 +108,5 @@ There is no CI yet, so gates are run locally. Adding CI is a trigger for `ln-63`
 | T-18, T-19 | **PASS** | `tests/test_local_guard.py`, import-linter |
 | T-16 | **PASS** (G-demos): all live positions on the radar; A and B plants in separate clusters. Visual overlay checked on one demo. | `tests/test_assets_and_zones.py` |
 | T-17 | **PASS** (G-browser): J1→J3 + exclude demo + delete, semantic locators, chart/table pairing (C-3), no console errors | `tests/test_browser_journey.py`; page and template smoke tests in G-fast: `tests/test_pages.py` |
-| T-10, T-11, T-13..T-15 | Not started (WU-10 onwards) | — |
+| T-10 | **PASS**: known-answer scenario (`tests/support/scenarios.py`) for T strategies, fakes, unresolved rounds, buy rounds, post-plants, CT setups and stacks, positions, rotations, early duels, retakes and saves, lineups, habits, weapons, roles, and the 2-demo rule | `tests/test_patterns_api.py` |
+| T-11, T-13..T-15 | Not started (WU-13 onwards) | — |

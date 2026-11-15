@@ -25,15 +25,19 @@ def stable_key(*parts) -> str:
 
 
 def pattern(kind: str, key_parts: tuple, subject: str, title: str, params: dict,
-            eligible: dict, refs: Iterable[str]) -> dict:  # fmt: skip
+            eligible: dict, refs: Iterable[str], stat: bool = False) -> dict:  # fmt: skip
+    """``stat=True``: a per-player measure, not a team pattern. Its share of all rounds is not
+    meaningful (a habit is "3 of 12 opening duels", not "3 of 45 rounds"), so only the
+    minimum count applies."""
     key = stable_key(kind, subject, *key_parts)
     return {"id": f"{kind}.{subject}.{key}", "kind": kind, "subject": subject,
             "stable_key": key, "title": title, "params": params, "eligible": eligible,
-            "all_refs": sorted(set(refs))}  # fmt: skip
+            "all_refs": sorted(set(refs)), "stat": stat}  # fmt: skip
 
 
-def passes(k: int, n: int, cfg: AnalysisConfig) -> bool:
-    return k >= cfg.min_support_rounds and n > 0 and k / n >= cfg.min_support_share
+def passes(k: int, n: int, cfg: AnalysisConfig, demos: int | None = None) -> bool:
+    enough_demos = demos is None or demos >= cfg.min_support_demos
+    return k >= cfg.min_support_rounds and n > 0 and k / n >= cfg.min_support_share and enough_demos
 
 
 def recount(patterns: list[dict], rounds: pl.DataFrame, player_refs: dict[str, set[str]],
@@ -57,7 +61,11 @@ def recount(patterns: list[dict], rounds: pl.DataFrame, player_refs: dict[str, s
         won = sum(1 for r in refs if by_ref[r]["won"])
         demos = {by_ref[r]["demo_label"] for r in refs}
         recent = sum(1 for r in refs if by_ref[r]["demo_label"] in recent_labels)
-        flags = [] if passes(k, n, cfg) else ["below_support"]
+        if p.get("stat"):
+            enough = k >= cfg.min_support_rounds
+        else:
+            enough = passes(k, n, cfg, len(demos))
+        flags = [] if enough else ["below_support"]
         if n < cfg.low_sample_rounds:
             flags.append("low_sample")
         out.append({

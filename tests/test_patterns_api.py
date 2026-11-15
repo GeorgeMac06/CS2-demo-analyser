@@ -105,4 +105,43 @@ def test_ct_rotation_aggression_retake_save(mined) -> None:
     assert retake["support"]["k"] == 18 and retake["params"]["won"] == 12
     assert retake["support"]["n"] == 21  # CT rounds with an enemy plant
     save = _of(snap, "ct.save")[0]
-    assert save["support"]["k"] == 3 and "below_support" in save["flags"]  # 3/21 = 14%
+    assert save["support"]["k"] == 3 and "below_support" not in save["flags"]  # 3/21, 3 demos
+
+
+def test_smoke_lineup_found(mined) -> None:
+    api, entry = mined
+    snap = api.findings(entry)
+    smokes = [f for f in _of(snap, "util.lineup", type="smoke", side="T")
+              if f["support"]["k"] >= 10]  # fmt: skip
+    assert len(smokes) == 1
+    lineup = smokes[0]
+    assert lineup["support"] == {"k": 15, "n": 36, "demos": 3}  # r2-r6 in each demo
+    assert lineup["params"]["throw_place"] == "Apartments"
+    assert lineup["params"]["throwers"] == [{"player": _player(snap, "a2"), "throws": 15}]
+    assert lineup["params"]["median_s"] == 12.0
+
+
+def test_habits_weapons_and_roles(mined) -> None:
+    api, entry = mined
+    snap = api.findings(entry)
+    a3, a4 = _player(snap, "a3"), _player(snap, "a4")
+    opening = [f for f in _of(snap, "plr.habit", habit="opening_kill", side="CT")
+               if f["subject"] == a3]  # fmt: skip
+    assert opening and opening[0]["params"]["place"] == "BombsiteA"
+    assert opening[0]["support"]["k"] == 9
+    awp = [f for f in _of(snap, "plr.weapon", weapon="awp") if f["subject"] == a4]
+    assert awp and all(f["params"]["weapon"] == "awp" for f in awp)
+    roles = {f["subject"]: f for f in _of(snap, "plr.role")}
+    assert "AWPer" in roles[a4]["params"]["roles"]
+    assert len(roles) == 5 and all("metrics" in f["params"] for f in roles.values())
+
+
+def test_ct_stacks_and_single_demo_coincidences(mined) -> None:
+    api, entry = mined
+    snap = api.findings(entry)
+    stacks = {f["params"]["stack"]: f["support"]["k"] for f in _of(snap, "ct.stack")}
+    assert stacks == {"standard": 27, "A stack": 9}
+    # The same B rush seen in one demo only: enough rounds, but not "a pattern" (2+ demos).
+    one = api.findings(entry, demos=[snap["round_index"][0]["demo_label"]])
+    b_rush = _of(one, "ts.strategy", site="B", tempo="rush")[0]
+    assert b_rush["support"]["k"] == 6 and "below_support" in b_rush["flags"]

@@ -13,8 +13,12 @@ class AnalysisConfig:
     eco_max: int = 5000
     force_max: int = 20000
     # Q2: a finding needs this much support to count as a pattern; warn below low_sample.
+    # Tuned at M2 on 4 real demos (2026-11-15): 15% hid every real T strategy (best was 7/50),
+    # because a team spreads its rounds over several strategies. 10% plus "seen in 2+ demos"
+    # shows them while one-match coincidences stay hidden.
     min_support_rounds: int = 3
-    min_support_share: float = 0.15
+    min_support_share: float = 0.10
+    min_support_demos: int = 2
     low_sample_rounds: int = 10
     # Q3: seconds after freeze end at which T setups are read.
     checkpoints_s: tuple[int, ...] = (15, 30, 45)

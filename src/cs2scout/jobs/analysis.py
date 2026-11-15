@@ -23,8 +23,9 @@ from cs2scout.core.features import assign_rounds, player_rounds
 from cs2scout.core.findings import SCHEMA_VERSION, all_findings, round_index_json
 from cs2scout.core.grids import POSITION_COLUMNS, build_grids, live_positions, project
 from cs2scout.core.maps import Radar
-from cs2scout.core.patterns_ct import ct_rounds, mine_ct
+from cs2scout.core.patterns_ct import ct_rounds, mine_ct, player_ct_summary
 from cs2scout.core.patterns_t import mine_t, t_rounds
+from cs2scout.core.patterns_util import demo_util, mine_util
 from cs2scout.core.positions import PlaceIndex
 from cs2scout.core.rounds import is_complete, lineup_score, match_result, team_rounds
 from cs2scout.core.schema import EXTRACT_SCHEMA
@@ -205,7 +206,7 @@ def _analyse(ctx: JobContext, demos: list[LoadedDemo], scouted: dict, roster: li
              excluded: set[int], cfg: AnalysisConfig, vdir: Path,
              radar: Radar | None, map_name: str) -> dict:  # fmt: skip
     rounds_parts, player_parts, position_parts, summaries = [], [], [], []
-    t_obs, ct_obs = [], []
+    t_obs, ct_obs, util_obs = [], [], []
     for i, d in enumerate(demos):
         ctx.check_cancel()
         ctx.progress(phase="analysing", done=i, total=len(demos))
@@ -231,6 +232,7 @@ def _analyse(ctx: JobContext, demos: list[LoadedDemo], scouted: dict, roster: li
         t_obs.extend(t_rounds(d.tables, rounds, members, map_name, d.tick_rate, cfg))
         place_index = PlaceIndex(d.tables["snapshots"])
         ct_obs.extend(ct_rounds(d.tables, rounds, members, map_name, d.tick_rate, place_index))
+        util_obs.append(demo_util(d.tables, rounds, members, d.tick_rate, place_index))
         position_parts.append(live_positions(
             d.tables["snapshots"].filter(pl.col("steamid").is_in(list(members))), rounds,
             plants.group_by("ref").agg(pl.col("tick").min()), cfg, d.tick_rate,
@@ -242,7 +244,12 @@ def _analyse(ctx: JobContext, demos: list[LoadedDemo], scouted: dict, roster: li
     if rounds_parts:
         rounds, players = pl.concat(rounds_parts), pl.concat(player_parts)
         keys = {m["steamid"]: m["player_key"] for m in roster}
-        patterns = mine_t(t_obs, cfg) + mine_ct(ct_obs, keys, cfg)
+        ct_pos, ct_rot = player_ct_summary(ct_obs, keys)
+        patterns = (
+            mine_t(t_obs, cfg)
+            + mine_ct(ct_obs, keys, cfg)
+            + mine_util(util_obs, ct_pos, ct_rot, players, keys, map_name, cfg)
+        )
         (vdir / "patterns.json").write_text(json.dumps(patterns, sort_keys=True), encoding="utf-8")
         findings = all_findings(rounds, players, roster, patterns, cfg, recent_labels=used[-3:])
         round_index = round_index_json(rounds)

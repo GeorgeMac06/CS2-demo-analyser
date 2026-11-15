@@ -22,12 +22,13 @@ from cs2scout.core.patterns import (
     pattern,
     signature,
 )
-from cs2scout.core.positions import group_label, positions_at
+from cs2scout.core.positions import family, group_label, positions_at
 from cs2scout.core.zones import PlaceNameZones
 
 UTILITY = {"smoke": "smokes", "flashbang": "flashes", "molotov": "molotovs",
            "incendiary": "molotovs", "he": "hes"}  # fmt: skip
 STRATEGY_SIMILARITY = 0.6
+SETUP_SIMILARITY = 0.75
 HIT_SITE_PLAYERS = 2  # players on the site at once: the hit has begun
 SITE_PRESENCE = 3  # players on a site that make it "their" site without a plant
 
@@ -37,7 +38,8 @@ class TRound:
     ref: str
     buy: str
     won: bool
-    setups: dict[int, Counter] = field(default_factory=dict)
+    setups: dict[int, Counter] = field(default_factory=dict)  # lanes, for descriptions
+    families: dict[int, Counter] = field(default_factory=dict)  # A side / B side / mid
     site: str | None = None
     hit_s: float | None = None
     planted: bool = False
@@ -69,10 +71,12 @@ def t_rounds(tables: dict[str, pl.DataFrame], rounds: pl.DataFrame, members: set
 
     checkpoints = positions_at(snaps, t, list(cfg.checkpoints_s), tick_rate).filter("alive")
     setups: dict[str, dict[int, Counter]] = defaultdict(dict)
+    families: dict[str, dict[int, Counter]] = defaultdict(dict)
     early: dict[str, str] = {}
     for (ref, sec), grp in checkpoints.group_by(["ref", "t"], maintain_order=True):
         zs = [zone(p) for p in grp["place"]]
         setups[ref][int(sec)] = Counter(group_label(z) for z in zs)
+        families[ref][int(sec)] = Counter(family(z) for z in zs)
         sites = Counter(z.site for z in zs if z.site)
         top = sites.most_common(1)
         if int(sec) >= 30 and top and top[0][1] >= SITE_PRESENCE and ref not in early:
@@ -102,7 +106,9 @@ def t_rounds(tables: dict[str, pl.DataFrame], rounds: pl.DataFrame, members: set
     out = []
     for r in t.sort("ref").iter_rows(named=True):
         ref, fe = r["ref"], r["freeze_end_tick"]
-        obs = TRound(ref, r["buy"], r["won"], setups=setups.get(ref, {}))
+        obs = TRound(
+            ref, r["buy"], r["won"], setups=setups.get(ref, {}), families=families.get(ref, {})
+        )
         plant = first_plant.get(ref)
         presence = on_site.get(ref, {})
         if plant is not None:
@@ -140,14 +146,18 @@ def mine_t(rounds: list[TRound], cfg: AnalysisConfig) -> list[dict]:
     out: list[dict] = []
     side = {"side": "T"}
 
-    by_setup: dict[tuple, list[str]] = defaultdict(list)
-    for r in rounds:
-        if 30 in r.setups:
-            by_setup[signature(r.setups[30].elements())].append(r.ref)
-    for sig, refs in by_setup.items():
-        if len(refs) >= 2:
-            out.append(pattern("ts.setup", (sig,), "team", f"At 0:30: {describe(sig)}",
-                               {"checkpoint_s": 30, "groups": dict(sig)}, side, refs))  # fmt: skip
+    at30 = [r for r in rounds if 30 in r.families]
+    lookup30 = {r.ref: r for r in at30}
+    for cluster in greedy_clusters([(r.ref, r.families[30]) for r in at30], SETUP_SIMILARITY):
+        if len(cluster) < 2:
+            continue
+        rs = [lookup30[ref] for ref in cluster]
+        sig = Counter(signature(r.families[30].elements()) for r in rs).most_common(1)[0][0]
+        usual = Counter(signature(r.setups[30].elements()) for r in rs).most_common(1)[0][0]
+        out.append(pattern("ts.setup", (sig,), "team",
+                           f"At 0:30: {describe(sig)} (usually {describe(usual)})",
+                           {"checkpoint_s": 30, "groups": dict(sig), "usual": dict(usual)},
+                           side, cluster))  # fmt: skip
 
     for site in ("A", "B", None):
         mine = [r for r in rounds if r.site == site]
@@ -171,13 +181,17 @@ def mine_t(rounds: list[TRound], cfg: AnalysisConfig) -> list[dict]:
         if r.site is not None:
             groups[(r.site, r.tempo)].append(r)
     for (site, band), members in sorted(groups.items()):
-        items = [(r.ref, r.setups.get(15) or r.setups.get(30) or Counter()) for r in members]
+        items = [(r.ref, r.families.get(15) or r.families.get(30) or Counter()) for r in members]
         lookup = {r.ref: r for r in members}
         for cluster in greedy_clusters(items, STRATEGY_SIMILARITY):
             if len(cluster) < 2:
                 continue
             rs = [lookup[ref] for ref in cluster]
-            seed = signature(rs[0].setups.get(15, rs[0].setups.get(30, Counter())).elements())
+            lanes = Counter(
+                signature((r.setups.get(15) or r.setups.get(30) or Counter()).elements())
+                for r in rs
+            )
+            seed = lanes.most_common(1)[0][0]
             util = {k: median(r.utility.get(k, 0) for r in rs)
                     for k in ("smokes", "flashes", "molotovs", "hes")}  # fmt: skip
             hit = median(r.hit_s for r in rs)

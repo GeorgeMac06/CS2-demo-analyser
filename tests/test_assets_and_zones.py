@@ -88,8 +88,9 @@ def test_zones_map_only_known_places() -> None:
     assert zones.zone("de_mirage", "TRamp") == zones.zone("de_mirage", "TRamp")
     assert (zones.zone("de_mirage", "Apartments").site, zones.zone("de_mirage", "Apartments").lane
             ) == ("B", "B apartments")  # fmt: skip
-    house = zones.zone("de_mirage", "House")
-    assert (house.name, house.site, house.lane) == ("House", None, None)
+    shop = zones.zone("de_mirage", "Shop")  # meaning not verified: deliberately unmapped
+    assert (shop.name, shop.site, shop.lane) == ("Shop", None, None)
+    assert zones.zone("de_mirage", "BackAlley").site == "B"  # mapped from real-demo evidence
     assert zones.zone("de_dust2", "BombsiteB").site == "B"  # generic rule for unmapped maps
     assert zones.zone("de_dust2", None).name == "Unknown"
 

@@ -15,11 +15,13 @@ _NEIGHBOURS = [(dx, dy) for r in range(1, 4) for dx in range(-r, r + 1) for dy i
 
 
 def positions_at(snapshots: pl.DataFrame, rounds: pl.DataFrame, seconds: list[float],
-                 tick_rate: float) -> pl.DataFrame:  # fmt: skip
+                 tick_rate: float, columns: tuple[str, ...] = ()) -> pl.DataFrame:  # fmt: skip
     """Every present player's position at ``seconds`` after each round's freeze end.
 
-    Rows: ref, steamid, side, t (seconds), tick, x, y, place, alive. A moment after the
-    round ended is skipped. The nearest snapshot within half a second is used.
+    Rows: ref, steamid, side, t (seconds), tick, x, y, place, alive, plus ``columns`` taken
+    from the same snapshot. ``tick`` is the requested moment, not the snapshot's tick, so
+    never join other snapshot data on it: ask for it through ``columns`` instead. A moment
+    after the round ended is skipped. The nearest snapshot within half a second is used.
     """
     targets = (
         rounds.select("ref", "freeze_end_tick", "end_tick")
@@ -29,13 +31,23 @@ def positions_at(snapshots: pl.DataFrame, rounds: pl.DataFrame, seconds: list[fl
     targets = targets.filter(pl.col("tick") <= pl.col("end_tick"))
     players = snapshots.select("steamid").unique()
     grid = targets.join(players, how="cross").sort("tick")
-    snaps = snapshots.select("tick", "steamid", "side", "x", "y", "place", "health").sort("tick")
+    snaps = snapshots.select("tick", "steamid", "side", "x", "y", "place", "health",
+                             *columns).sort("tick")  # fmt: skip
     joined = grid.join_asof(
         snaps, on="tick", by="steamid", strategy="nearest",
         tolerance=SNAPSHOT_STRIDE_TICKS * 2, check_sortedness=False,
     )  # fmt: skip
     return joined.drop_nulls("side").select(
-        "ref", "steamid", "side", "t", "tick", "x", "y", "place", alive=pl.col("health") > 0
+        "ref",
+        "steamid",
+        "side",
+        "t",
+        "tick",
+        "x",
+        "y",
+        "place",
+        *columns,
+        alive=pl.col("health") > 0,
     )
 
 
@@ -69,5 +81,10 @@ def zone_of(zones: PlaceNameZones, map_name: str, place: str | None) -> Zone:
 
 
 def group_label(zone: Zone) -> str:
-    """The coarse group used for setups: the lane when known, otherwise the place itself."""
+    """The lane when known, otherwise the place itself (used to describe setups)."""
     return zone.lane or zone.name
+
+
+def family(zone: Zone) -> str:
+    """The coarsest grouping, used to compare setups: A side, B side, or mid/other."""
+    return f"{zone.site} side" if zone.site else "mid"

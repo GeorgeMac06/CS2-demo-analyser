@@ -65,10 +65,9 @@ def ct_rounds(tables: dict[str, pl.DataFrame], rounds: pl.DataFrame, members: se
     for ref, steamid, place in at20.select("ref", "steamid", "place").iter_rows():
         places_at[ref][steamid] = place or "Unknown"
 
-    kills = (
-        assign_rounds(tables["kills"], windows)
-        .join(ct.select("ref", "freeze_end_tick"), on="ref")
-        .filter(pl.col("tick") < pl.col("freeze_end_tick") + int(EARLY_S * tick_rate))
+    all_kills = assign_rounds(tables["kills"], windows)
+    kills = all_kills.join(ct.select("ref", "freeze_end_tick"), on="ref").filter(
+        pl.col("tick") < pl.col("freeze_end_tick") + int(EARLY_S * tick_rate)
     )
     plants = assign_rounds(tables["bomb"].filter(pl.col("event") == "finish_plant"), windows)
     first_plant = {r["ref"]: r for r in plants.sort("tick").group_by("ref").first().iter_rows(
@@ -114,11 +113,18 @@ def ct_rounds(tables: dict[str, pl.DataFrame], rounds: pl.DataFrame, members: se
         if plant is not None:
             obs.plant_site = plant["bombsite"]
             after = mine.filter((pl.col("tick") > plant["tick"]) & (pl.col("health") > 0))
-            on_site = after.with_columns(
-                site=pl.col("place").map_elements(lambda p: zone(p).on_site,
-                                                  return_dtype=pl.String))  # fmt: skip
-            per_tick = on_site.filter(pl.col("site") == obs.plant_site).group_by("tick").len()
-            obs.retake = bool(per_tick.filter(pl.col("len") >= RETAKE_PLAYERS).height)
+            near = after.with_columns(
+                site=pl.col("place").map_elements(lambda p: zone(p).site, return_dtype=pl.String)
+            ).filter(pl.col("site") == obs.plant_site)
+            together = near.group_by("tick").len().filter(pl.col("len") >= RETAKE_PLAYERS)
+            # Retake: 2+ of the team on the planted site or its approaches at once, or one of
+            # them killed there (a retake that failed on the way in is still a retake).
+            fell = any(
+                k["victim_steamid"] in members and k["tick"] > plant["tick"]
+                and zone(places.place(k["victim_x"], k["victim_y"])).site == obs.plant_site
+                for k in all_kills.filter(pl.col("ref") == ref).iter_rows(named=True)
+            )  # fmt: skip
+            obs.retake = bool(together.height) or fell
             alive_end = mine.filter(pl.col("tick") <= r["end_tick"]).group_by("steamid").last()
             obs.saved = (not r["won"] and not obs.retake
                          and bool(alive_end.filter(pl.col("health") > 0).height))  # fmt: skip
@@ -155,6 +161,16 @@ def mine_ct(rounds: list[CTRound], keys: dict[int, str], cfg: AnalysisConfig) ->
             out.append(pattern("ct.setup", (sig,), "team", f"Setup at 0:20: {describe(sig)}",
                                {"groups": dict(sig)}, side, refs))  # fmt: skip
 
+    stacks: dict[str, list[str]] = defaultdict(list)
+    for r in rounds:
+        if r.setup:
+            groups = dict(r.setup)
+            a, b = groups.get("A", 0), groups.get("B", 0)
+            stacks["A stack" if a >= 3 else "B stack" if b >= 3 else "standard"].append(r.ref)
+    for kind, refs in stacks.items():
+        title = "Standard spread (no 3-man stack)" if kind == "standard" else f"{kind} (3+ players)"
+        out.append(pattern("ct.stack", (kind,), "team", title, {"stack": kind}, side, refs))
+
     for steamid, key in keys.items():
         seen = [(r.ref, r.places[steamid]) for r in rounds if steamid in r.places]
         if not seen:
@@ -162,9 +178,11 @@ def mine_ct(rounds: list[CTRound], keys: dict[int, str], cfg: AnalysisConfig) ->
         counts = Counter(place for _, place in seen)
         main = counts.most_common(1)[0][0]
         spots = [{"place": p, "rounds": n} for p, n in counts.most_common(4)]
-        out.append(pattern("ct.position", (), key, f"Usually {main} at 0:20", {
+        out.append(pattern("ct.position", (), key, f"Most often at {main} at 0:20", {
             "main": main, "positions": spots, "observed": len(seen),
-        }, {"side": "CT", "player": key}, [ref for ref, p in seen if p == main]))  # fmt: skip
+            "share_pct": round(100 * counts[main] / len(seen), 1),
+        }, {"side": "CT", "player": key}, [ref for ref, p in seen if p == main],
+            stat=True))  # fmt: skip
 
         duels = [(r.ref, d) for r in rounds for d in r.early if d["steamid"] == steamid]
         if duels:
@@ -173,7 +191,7 @@ def mine_ct(rounds: list[CTRound], keys: dict[int, str], cfg: AnalysisConfig) ->
             out.append(pattern("ct.aggression", (), key, "Early duels (before 0:20)", {
                 "duels": len(duels), "won": won, "lost": len(duels) - won,
                 "places": [{"place": p, "duels": n} for p, n in where],
-            }, {"side": "CT", "player": key}, [ref for ref, _ in duels]))  # fmt: skip
+            }, {"side": "CT", "player": key}, [ref for ref, _ in duels], stat=True))  # fmt: skip
 
         considered = [(r.ref, r.rotations[steamid]) for r in rounds if steamid in r.rotations]
         rotated = [(ref, s) for ref, s in considered if s is not None]
@@ -181,7 +199,7 @@ def mine_ct(rounds: list[CTRound], keys: dict[int, str], cfg: AnalysisConfig) ->
             m = median(s for _, s in rotated)
             out.append(pattern("ct.rotation", (), key, f"Rotates to a hit site in ~{m:g} s", {
                 "considered": len(considered), "rotated": len(rotated), "median_s": m,
-            }, {"side": "CT", "player": key}, [ref for ref, _ in rotated]))  # fmt: skip
+            }, {"side": "CT", "player": key}, [ref for ref, _ in rotated], stat=True))  # fmt: skip
 
     planted = [r for r in rounds if r.plant_site]
     retakes = [r for r in planted if r.retake]
@@ -196,3 +214,17 @@ def mine_ct(rounds: list[CTRound], keys: dict[int, str], cfg: AnalysisConfig) ->
                            {"saves": len(saves)}, {"side": "CT", "planted": True},
                            [r.ref for r in saves]))  # fmt: skip
     return out
+
+
+def player_ct_summary(rounds: list[CTRound], steamids) -> tuple[dict[int, dict], dict[int, dict]]:
+    """Per player: main CT spot with its share, and rotations considered/made (for roles)."""
+    positions, rotation = {}, {}
+    for steamid in steamids:
+        seen = [r.places[steamid] for r in rounds if steamid in r.places]
+        if seen:
+            main, n = Counter(seen).most_common(1)[0]
+            positions[steamid] = {"main": main, "share": n / len(seen)}
+        considered = [r.rotations[steamid] for r in rounds if steamid in r.rotations]
+        rotation[steamid] = {"considered": len(considered),
+                             "rotated": sum(v is not None for v in considered)}  # fmt: skip
+    return positions, rotation

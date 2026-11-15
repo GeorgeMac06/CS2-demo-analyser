@@ -113,6 +113,7 @@ def build_extract(scenario: dict) -> Extract:  # noqa: C901 - a linear table bui
     a_starts = scenario.get("a_starts", "T")
     names = scenario.get("names", {})
     clan = scenario.get("clan", {"A": "Team A", "B": "Team B"})
+    weapons = scenario.get("weapons", {})  # player key -> primary weapon (default ak47)
     lineup_of = {k: lu for lu, keys in lineups.items() for k in keys}
 
     rec: dict[str, list[dict]] = {name: [] for name in TABLES}
@@ -176,7 +177,8 @@ def build_extract(scenario: dict) -> Extract:  # noqa: C901 - a linear table bui
                 rec["snapshots"].append({
                     "tick": t, "steamid": steamid(key), "side": player_side[key], "x": x, "y": y,
                     "z": 0.0, "yaw": 0.0, "health": 100 if alive else 0, "armor": 100 if alive
-                    else 0, "active_weapon": "ak47", "money": 1000,
+                    else 0, "active_weapon": weapons.get(key, "ak47"),
+                    "primary_weapon": weapons.get(key, "ak47"), "money": 1000,
                     "equipment_value": 5000 if alive else 0, "place": place,
                 })  # fmt: skip
 

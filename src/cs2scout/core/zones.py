@@ -34,7 +34,8 @@ class ZoneProvider(Protocol):
 
 
 # Mirage: the 23 place names seen in spike S-1. Unmapped on purpose (meaning not verified):
-# House, Shop, Truck, BackAlley, SideAlley.
+# Shop, Truck, SideAlley. BackAlley and House were mapped from evidence (WU-12, 4 real demos):
+# T rounds with 4-5 players there at 0:15 went on to hit B in 6 of 8 cases.
 _MIRAGE = {
     "BombsiteA": ("A", "A site"),
     "Scaffolding": ("A", "A site"),
@@ -51,6 +52,8 @@ _MIRAGE = {
     "Catwalk": ("B", "B short"),
     "Underpass": ("B", "underpass"),
     "Apartments": ("B", "B apartments"),
+    "House": ("B", "B apartments"),
+    "BackAlley": ("B", "B back alley"),
     "BombsiteB": ("B", "B site"),
     "TSpawn": (None, "T spawn"),
     "CTSpawn": (None, "CT spawn"),

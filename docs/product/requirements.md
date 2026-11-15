@@ -252,7 +252,7 @@ Functional acceptance (§4) says the app works. It does not show that the app im
 | ID | Question | Default if not answered |
 |---|---|---|
 | Q1 | Buy-class thresholds (team equipment value) | Common community thresholds, e.g. eco < $5k, force $5k–$20k, full > $20k. Adjustable in settings. |
-| Q2 | Minimum support and low-sample limits | A pattern needs at least 3 rounds and at least 15% of eligible rounds. Warning below 10 rounds. |
+| Q2 | Minimum support and low-sample limits | **Decided 2026-11-15 (M2 tuning on 4 real demos):** a team pattern needs at least 3 rounds, at least **10%** of eligible rounds, and to appear in at least **2 demos**. Per-player measures (habits, positions, rotations, weapons, clutches, roles) need at least 3 rounds; a share of all rounds is not meaningful for them. Warning below 10 rounds. The earlier 15% default hid every real T strategy (best was 7 of 50 rounds). |
 | Q3 | Strategy checkpoint times (FR-TS-1) | 15s, 30s and 45s after freeze-time end |
 | Q4 | Use only built-in place names, or also add custom callout polygons? | Built-in place names first. Polygons are added only if A2 fails. |
 | Q5 | Scope of the "suggested counters" text in the AI brief | Included, labelled as suggestions |
