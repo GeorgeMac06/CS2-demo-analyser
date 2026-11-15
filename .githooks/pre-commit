@@ -9,4 +9,4 @@ fi
 uv run ruff format --check .
 uv run ruff check .
 uv run lint-imports
-uv run pytest -q
+uv run pytest -q -n 8  # parallel: ~2 min instead of ~5

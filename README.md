@@ -37,7 +37,7 @@ git config core.hooksPath .githooks
 
 | Gate | Command |
 |---|---|
-| G-fast | `uv run ruff format --check . && uv run ruff check . && uv run lint-imports && uv run pytest` |
+| G-fast | `uv run ruff format --check . && uv run ruff check . && uv run lint-imports && uv run pytest -n 8` |
 | G-demos | `uv run pytest -m demos --require-demos` (needs `tests/local_fixtures/`, not in git) |
 | G-browser | `uv run pytest -m browser` (one-time setup: `uv run playwright install chromium`) |
 
