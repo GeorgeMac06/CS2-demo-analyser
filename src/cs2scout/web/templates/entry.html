@@ -25,6 +25,11 @@
   </div>
 </div>
 <div id="notice"></div>
+{% if outdated %}
+<div class="card" id="outdated"><strong>This analysis was built by an older version of the app.</strong>
+  Pattern tabs stay empty until it is updated. Updating uses the stored data; nothing is parsed again.
+  <p><button hx-post="/ui/entries/{{ entry.id }}/recompute" hx-target="#outdated" hx-swap="innerHTML">Update now</button></p></div>
+{% endif %}
 {% if snapshot and snapshot.problems %}
 <div class="card">{% for p in snapshot.problems %}<p><span class="chip warn">{{ p.code }}</span> {{ p.label }}: {{ p.message }}</p>{% endfor %}</div>
 {% endif %}

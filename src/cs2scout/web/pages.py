@@ -209,8 +209,12 @@ def entry_page(entry_id: int, request: Request, tab: str = "overview") -> HTMLRe
     snapshot = _snapshot(request, entry_id)
     tab_ctx = _tab_context(request, entry, tab, RoundFilter())
     tab_template = tab_ctx.pop("template")
+    vdir = request.app.state.library.current_version_dir(entry_id)
+    # Built before pattern mining existed (or by an older format): offer a recompute.
+    outdated = vdir is not None and not (vdir / "patterns.json").exists()
     return _page(request, "entry.html", **(tab_ctx | {"entry": entry, "tab": tab,
-                 "snapshot": snapshot, "buys": BUYS, "tab_template": tab_template}))  # fmt: skip
+                 "snapshot": snapshot, "buys": BUYS, "tab_template": tab_template,
+                 "outdated": outdated}))  # fmt: skip
 
 
 @router.get("/ui/entries/{entry_id}/tab/{tab}", response_class=HTMLResponse)
@@ -370,6 +374,11 @@ async def ui_change_demo(entry_id: int, sha256: str, request: Request) -> HTMLRe
     )
     return _job_or_error(request, lambda: api.change_demo(entry_id, sha256, change, request),
                          f"/entries/{entry_id}?tab=demos")  # fmt: skip
+
+
+@router.post("/ui/entries/{entry_id}/recompute", response_class=HTMLResponse)
+def ui_recompute(entry_id: int, request: Request) -> HTMLResponse:
+    return _job_or_error(request, lambda: api.recompute(entry_id, request), f"/entries/{entry_id}")
 
 
 @router.post("/ui/entries/{entry_id}/roster", response_class=HTMLResponse)

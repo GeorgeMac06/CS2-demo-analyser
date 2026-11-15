@@ -104,3 +104,13 @@ def test_pattern_tabs_render_and_rename(api: Api, scouted: int) -> None:
                             data={"label": "B apps fast"}, headers=api.headers)  # fmt: skip
     assert saved.headers.get("HX-Trigger") == "labels-changed"
     assert "B apps fast" in api.client.get(f"/ui/entries/{scouted}/tab/t").text
+
+
+def test_outdated_analysis_offers_an_update(api: Api, entry: int) -> None:
+    vdir = api.library.current_version_dir(entry)
+    (vdir / "patterns.json").unlink()  # as built by a version before pattern mining
+    assert "Update now" in api.client.get(f"/entries/{entry}").text
+    started = api.client.post(f"/ui/entries/{entry}/recompute", headers=api.headers)
+    job_id = started.text.split('id="job-')[1].split('"')[0]
+    assert api.wait(job_id)["state"] == "done"
+    assert "Update now" not in api.client.get(f"/entries/{entry}").text
