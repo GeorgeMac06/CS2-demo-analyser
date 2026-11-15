@@ -74,3 +74,35 @@ def test_patterns_are_saved_with_the_version(mined) -> None:
     api, entry = mined
     vdir: Path = api.library.current_version_dir(entry)
     assert (vdir / "patterns.json").exists()
+
+
+def _player(snapshot: dict, key_of: str) -> str:
+    """Player key of synthetic player ``a1``..``a5`` (nick == key in the scenario)."""
+    return next(m["player_key"] for m in snapshot["roster"] if m["nick"] == key_of)
+
+
+def test_ct_setups_and_positions(mined) -> None:
+    api, entry = mined
+    snap = api.findings(entry)
+    setups = {tuple(sorted(f["params"]["groups"].items())): f["support"]
+              for f in snap["findings"] if f["kind"] == "ct.setup"}  # fmt: skip
+    assert setups[(("A", 2), ("B", 2), ("mid", 1))] == {"k": 27, "n": 36, "demos": 3}
+    assert setups[(("A", 3), ("B", 1), ("mid", 1))]["k"] == 9
+    a3 = _of(snap, "ct.position")
+    a3 = next(f for f in a3 if f["subject"] == _player(snap, "a3"))
+    assert a3["params"]["main"] == "Connector" and a3["support"]["k"] == 27
+
+
+def test_ct_rotation_aggression_retake_save(mined) -> None:
+    api, entry = mined
+    snap = api.findings(entry)
+    a1 = _player(snap, "a1")
+    rotation = next(f for f in _of(snap, "ct.rotation") if f["subject"] == a1)
+    assert rotation["params"] == {"considered": 15, "rotated": 12, "median_s": 7.0}
+    early = next(f for f in _of(snap, "ct.aggression") if f["subject"] == _player(snap, "a3"))
+    assert early["params"]["won"] == 9 and early["params"]["places"][0]["place"] == "BombsiteA"
+    retake = _of(snap, "ct.retake")[0]
+    assert retake["support"]["k"] == 18 and retake["params"]["won"] == 12
+    assert retake["support"]["n"] == 21  # CT rounds with an enemy plant
+    save = _of(snap, "ct.save")[0]
+    assert save["support"]["k"] == 3 and "below_support" in save["flags"]  # 3/21 = 14%

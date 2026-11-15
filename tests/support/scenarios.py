@@ -11,6 +11,11 @@ T half
 CT half (positions at 0:20)
     r13-r21 2-1-2: a1 a2 BombsiteA, a3 Connector, a4 a5 BombsiteB
     r22-r24 A stack: a1 a2 a3 BombsiteA, a4 Connector, a5 BombsiteB
+    r13-r16 enemy takes B at 0:25 and plants at 0:28; a1 rotates from A to B at 0:32 (7 s);
+            a4 a5 are on B, so this is a retake attempt, and it is won
+    r17-r18 enemy takes A at 0:25, plants 0:28; a1 a2 on A: retake attempt, lost
+    r19     enemy takes B, plants 0:28; a4 a5 leave for CTSpawn at 0:26: no retake, a save
+    r22-r24 a3 wins an early duel at 0:10 on A (aggression)
 """
 
 from __future__ import annotations
@@ -54,26 +59,44 @@ def _t_round(n: int, opp: list[str]) -> dict:
     return rnd
 
 
-def _ct_round(n: int) -> dict:
+def _ct_round(n: int, opp: list[str]) -> dict:
     a1, a2, a3, a4, a5 = TEAM
+    o1, o2, o3 = opp[:3]
     if n <= 21:
         spots = {a1: "BombsiteA", a2: "BombsiteA", a3: "Connector", a4: "BombsiteB",
                  a5: "BombsiteB"}  # fmt: skip
     else:
         spots = {a1: "BombsiteA", a2: "BombsiteA", a3: "BombsiteA", a4: "Connector",
                  a5: "BombsiteB"}  # fmt: skip
-    return {"places": {"5": spots}}
+    rnd: dict = {"places": {"5": spots}}
+    if 13 <= n <= 16 or n == 19:
+        rnd["places"]["25"] = dict.fromkeys((o1, o2, o3), "BombsiteB")
+        rnd["plant"] = {"t": 28, "site": "B", "player": o1}
+        if n == 19:
+            rnd["places"]["26"] = {a4: "CTSpawn", a5: "CTSpawn"}
+        else:
+            rnd["places"]["32"] = {a1: "BombsiteB"}
+    elif n in (17, 18):
+        rnd["places"]["25"] = dict.fromkeys((o1, o2, o3), "BombsiteA")
+        rnd["plant"] = {"t": 28, "site": "A", "player": o1}
+    if n >= 22:
+        rnd["early_kill"] = {"t": 10, "attacker": a3, "victim": opp[0]}
+    return rnd
 
 
 def scouted_match(opp_prefix: str, server: str) -> dict:
     opp = lineup(opp_prefix)
     rounds = []
     for n in range(1, 25):
-        rnd = _t_round(n, opp) if n <= 12 else _ct_round(n)
+        rnd = _t_round(n, opp) if n <= 12 else _ct_round(n, opp)
         winner = "A" if n in A_WINS else "B"
         killer, victim = (TEAM, opp) if winner == "A" else (opp, TEAM)
         rnd["winner"] = winner
-        rnd["kills"] = [{"t": 30, "attacker": killer[n % 5], "victim": victim[n % 5]}]
+        early = rnd.pop("early_kill", None)
+        late_victim = victim[n % 5] if not early or victim[n % 5] != early["victim"] else victim[1]
+        rnd["kills"] = ([early] if early else []) + [
+            {"t": 40, "attacker": killer[n % 5], "victim": late_victim}
+        ]
         rnd.setdefault("duration", 60)
         rounds.append(rnd)
     return {"map": "de_mirage", "server": server, "lineups": {"A": TEAM, "B": opp},

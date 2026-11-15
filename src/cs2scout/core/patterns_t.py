@@ -61,7 +61,8 @@ def t_rounds(tables: dict[str, pl.DataFrame], rounds: pl.DataFrame, members: set
         return []
     ids = list(members)
     snaps = tables["snapshots"].filter(pl.col("steamid").is_in(ids))
-    windows = t.sort("start_tick").with_columns(
+    # Windows from *all* rounds: a side's last round must end where the next round starts.
+    windows = rounds.sort("start_tick").with_columns(
         window_end=pl.col("start_tick").shift(-1).fill_null(2**31 - 1)
     )
     zone = lambda place: zones.zone(map_name, place)  # noqa: E731
