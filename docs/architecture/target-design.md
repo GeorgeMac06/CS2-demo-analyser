@@ -409,6 +409,12 @@ The thresholds below come from `AnalysisConfig`. The defaults are Q2 and Q3 from
   - If more than 20% of claims are dropped, the result is `AI_UNGROUNDED`, and the Analyst can retry.
   - The brief is stored with its `entry_version`. A newer `current_version` marks it stale (FR-AI-3).
 - **Failure:** any SDK error is mapped to `AI_UPSTREAM` with a message. Entry state is never touched (FR-AI-4).
+- **As built (WU-15):**
+  - `ai/payload.py`, `ai/confirm.py`, `ai/client.py`, `ai/grounding.py`. The API is `POST …/ai-brief/preview`, `POST …/ai-brief` and `GET …/ai-brief`. The UI is the "AI brief" tab.
+  - Only findings that pass support are sent, without `round_refs` and without the `land`, `throw` and `hit_times_s` params. The export leak guard runs on the payload too (`EXPORT_BLOCKED`).
+  - SDK `anthropic` 2.x. The model defaults to `claude-opus-5-5`, overridden by `CS2SCOUT_AI_MODEL`. The call streams with `max_tokens` 32000 and effort `high`. Output is `output_config.format` JSON schema. Models that support it get the `server-side-fallback-2026-07-01` beta with `fallbacks: "default"`. A `refusal` or `max_tokens` stop reason → `AI_UPSTREAM`.
+  - Tokens are single-use, and one call per entry runs at a time (`CONFLICT_JOB_RUNNING`). The HMAC secret is per launch, so a restart invalidates open previews.
+  - The `ai_brief` row stores `{sections, claims, dropped, filter}`. Staleness is computed as `entry_version != current_version`, not stored.
 
 ## 7. Operations
 

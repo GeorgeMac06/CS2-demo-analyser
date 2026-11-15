@@ -13,6 +13,23 @@ from cs2scout.jobs.extract_worker import DEFAULT_ADAPTER, DEFAULT_TIMEOUT_S
 # Fixed by design (C-1, DRV-5): the server is never reachable from the network.
 LOOPBACK_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
+DEFAULT_AI_MODEL = "claude-opus-5-5"  # mirrors cs2scout.ai.client (settings stays SDK-free)
+
+
+def read_dotenv(path: Path) -> dict[str, str]:
+    """``KEY=value`` lines from a ``.env`` file; a missing file is empty."""
+    try:
+        lines = path.read_text(encoding="utf-8-sig").splitlines()
+    except OSError:
+        return {}
+    out = {}
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.removeprefix("export ").partition("=")
+        out[key.strip()] = value.strip().strip("'\"")
+    return out
 
 
 @dataclass(frozen=True)
@@ -24,6 +41,9 @@ class Settings:
     retain_sources: bool = True
     archive_limits: Limits = field(default_factory=Limits)
     parse_timeout_s: float = DEFAULT_TIMEOUT_S
+    # FR-AI-1, DEP-4: optional. Never printed: repr=False keeps it out of logs and tracebacks.
+    anthropic_api_key: str | None = field(default=None, repr=False)
+    ai_model: str = DEFAULT_AI_MODEL
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str] = os.environ) -> Settings:
@@ -42,4 +62,11 @@ class Settings:
         if not 1 <= port <= 65535:
             raise ValueError(f"CS2SCOUT_PORT must be between 1 and 65535, got {port}")
 
-        return cls(home=home, port=port)
+        # The key may live in the environment or a .env file (workspace first, then cwd).
+        dotenv = read_dotenv(Path.cwd() / ".env") | read_dotenv(home / ".env")
+
+        def value(name: str) -> str | None:
+            return environ.get(name) or dotenv.get(name) or None
+
+        return cls(home=home, port=port, anthropic_api_key=value("ANTHROPIC_API_KEY"),
+                   ai_model=value("CS2SCOUT_AI_MODEL") or DEFAULT_AI_MODEL)  # fmt: skip

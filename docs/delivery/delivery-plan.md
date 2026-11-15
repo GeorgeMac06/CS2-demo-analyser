@@ -44,7 +44,15 @@
 <br>• Plotly, CSS and the radar image are inlined. Radars are embedded once and resolved by a small inline script. A strict CSP blocks all network access.
 <br>• A leak guard refuses to write an export containing a SteamID or a local file path (`EXPORT_BLOCKED`).
 <br>• The real 4-demo brief is 5.3 MB, and all 11 figures render offline.
-<br>**Next:** WU-15 (AI brief), WU-16 (settings, docs, final journey). P-6 (radar image licence) is still open before any export is shared.|
+<br>**WU-15 done** (2026-11-15). A new "AI brief" tab turns the filtered findings into an anti-strat brief with Claude, when `ANTHROPIC_API_KEY` is set (environment or `.env`). Without a key the tab explains how to turn it on, and nothing else changes.
+<br>• Preview first: the tab shows the exact payload and instructions, a token estimate and the model. Nothing leaves the PC until "Send to Claude". The confirmation token is an HMAC of the payload hash, single-use, and expires in 10 minutes. Changing the filters or the analysis invalidates it.
+<br>• The payload holds supported findings only (no round lists, coordinates, grids or SteamIDs), roster keys and nicknames, and demo dates and scores. The export leak guard also runs on it.
+<br>• The call uses the official SDK: model `claude-opus-5-5` (change it with `CS2SCOUT_AI_MODEL`), streaming, effort `high`, structured JSON output, and the server-side refusal fallback.
+<br>• Grounding: claims without citations, or citing unknown findings, are dropped. More than 20% dropped → `AI_UNGROUNDED`, and nothing is saved. Each kept claim shows its cited findings with k/n.
+<br>• The brief is stored with its analysis version and is marked stale when the analysis changes. Only a brief that is not stale goes into the export, labelled "AI-generated".
+<br>• SDK errors (bad key, rate limit, overload, network, refusal, truncation) → `AI_UPSTREAM` with a clear message. The entry is untouched.
+<br>• Live check against the real API (P-3, G-manual) not run yet: it needs the owner's key.
+<br>**Next:** WU-16 (settings, docs, final journey). P-6 (radar image licence) is still open before any export is shared.|
 | Outcome | The owner can import N demos of one team on one map. They can explore team and player patterns with support counts, and export a brief for teammates. The AI summary is optional. |
 
 **What this plan covers:**

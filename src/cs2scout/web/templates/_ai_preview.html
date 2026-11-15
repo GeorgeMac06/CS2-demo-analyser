@@ -1,0 +1,13 @@
+<div class="card">
+  <h3>What will be sent</h3>
+  <p>{{ preview.payload.findings | length }} findings ({{ kinds | join(", ") }}), {{ preview.payload.roster | length }} player nicknames, and the date and score of {{ preview.payload.demos | length }} demo{{ "s" if preview.payload.demos | length != 1 }}. No demo files, SteamIDs, positions or round lists.</p>
+  <p class="muted">About {{ "{:,}".format(preview.estimated_input_tokens) }} input tokens, to {{ preview.model }}. This preview is valid for 10 minutes. Changing the filters needs a new preview.</p>
+  <details><summary>Show the data</summary><pre class="payload">{{ payload_json }}</pre></details>
+  <details><summary>Show the instructions sent with it</summary><pre class="payload">{{ preview.instructions }}</pre></details>
+  <form hx-post="/ui/entries/{{ entry_id }}/ai-brief" hx-include="#filters" hx-target="#ai-step"
+        hx-disabled-elt="find button" hx-indicator="#ai-wait">
+    <input type="hidden" name="token" value="{{ preview.token }}">
+    <button type="submit">Send to Claude</button>
+    <span id="ai-wait" class="htmx-indicator muted">Claude is writing the brief. This can take a minute or two.</span>
+  </form>
+</div>

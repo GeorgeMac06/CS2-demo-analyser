@@ -230,6 +230,33 @@ class Library:
         )
         return rows[0] if rows else None
 
+    # ------------------------------------------------------------------ AI briefs (FR-AI-3)
+
+    def save_brief(self, entry_id: int, entry_version: int, model: str, payload_hash: str,
+                   brief: dict) -> str:  # fmt: skip
+        created = datetime.now(UTC).isoformat(timespec="microseconds")
+        with self.transaction() as db:
+            db.execute(
+                "INSERT INTO ai_brief VALUES (?, ?, ?, ?, ?, ?)",
+                (entry_id, entry_version, created, model, payload_hash, json.dumps(brief)),
+            )
+        return created
+
+    def latest_brief(self, entry_id: int) -> dict | None:
+        """The newest brief; ``stale`` once the analysis has a newer version."""
+        rows = self._query(
+            "SELECT b.*, e.current_version FROM ai_brief b JOIN entry e USING (entry_id) "
+            "WHERE entry_id = ? ORDER BY created_at DESC LIMIT 1",
+            (entry_id,),
+        )
+        if not rows:
+            return None
+        r = rows[0]
+        return {"entry_version": r["entry_version"], "created_at": r["created_at"],
+                "model": r["model"], "payload_hash": r["payload_hash"],
+                "stale": r["entry_version"] != r["current_version"],
+                "current_version": r["current_version"]} | json.loads(r["brief_json"])  # fmt: skip
+
     # ------------------------------------------------------------------ labels (FR-TS-3)
 
     def labels(self, entry_id: int) -> dict[tuple[str, str], str]:

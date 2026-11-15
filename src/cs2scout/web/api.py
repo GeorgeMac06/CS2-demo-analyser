@@ -7,12 +7,17 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import time
 from datetime import date
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel, Field
 
+from cs2scout.ai import client as ai_client
+from cs2scout.ai import confirm as ai_confirm
+from cs2scout.ai import grounding as ai_grounding
+from cs2scout.ai import payload as ai_payload
 from cs2scout.core.errors import ErrorCode
 from cs2scout.core.findings import RoundFilter
 from cs2scout.core.labels import apply as apply_labels
@@ -342,8 +347,9 @@ def get_rounds(
     return [r for r in rounds if not wanted or r["ref"] in wanted]
 
 
-class ExportRequest(BaseModel):
-    sections: list[Literal["overview", "t", "ct", "utility", "players"]] = []
+class FilterBody(BaseModel):
+    """The findings filters, as JSON (the same fields as the GET query)."""
+
     side: Literal["T", "CT"] | None = None
     buy: list[Buy] = []
     opp_buy: list[Buy] = []
@@ -351,6 +357,22 @@ class ExportRequest(BaseModel):
     date_from: str | None = None
     date_to: str | None = None
     ot: bool = True
+
+    def round_filter(self) -> RoundFilter:
+        return RoundFilter(
+            side=self.side, buy=tuple(sorted(self.buy)), opp_buy=tuple(sorted(self.opp_buy)),
+            demos=tuple(sorted(self.demos)), date_from=self.date_from, date_to=self.date_to,
+            include_ot=self.ot,
+        )  # fmt: skip
+
+
+def active_filter(flt: RoundFilter) -> dict:
+    """Only the filters that narrow the rounds (for display and the AI payload)."""
+    return {k: v for k, v in vars(flt).items() if v not in ((), None, True)}
+
+
+class ExportRequest(FilterBody):
+    sections: list[Literal["overview", "t", "ct", "utility", "players", "brief"]] = []
 
 
 @router.post("/entries/{entry_id}/export")
@@ -360,14 +382,108 @@ def export_entry(entry_id: int, body: ExportRequest, request: Request):
 
     from cs2scout.web.export_view import ExportLeak, render
 
-    flt = RoundFilter(
-        side=body.side, buy=tuple(sorted(body.buy)), opp_buy=tuple(sorted(body.opp_buy)),
-        demos=tuple(sorted(body.demos)), date_from=body.date_from, date_to=body.date_to,
-        include_ot=body.ot,
-    )  # fmt: skip
     try:
-        name, html = render(request, entry_id, list(body.sections), flt)
+        name, html = render(request, entry_id, list(body.sections), body.round_filter())
     except ExportLeak as exc:
         raise ApiError(500, ErrorCode.EXPORT_BLOCKED, str(exc)) from exc
     return Response(html, media_type="text/html; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="{name}"'})  # fmt: skip
+
+
+# ---------------------------------------------------------------- AI brief (FR-AI-1..4)
+
+
+def _now() -> float:
+    return time.time()
+
+
+def ai_enabled(request: Request) -> bool:
+    return bool(_state(request).settings.anthropic_api_key)
+
+
+def _ai_key(request: Request) -> str:
+    key = _state(request).settings.anthropic_api_key
+    if not key:
+        raise ApiError(409, ErrorCode.AI_DISABLED, "AI briefs are off: set ANTHROPIC_API_KEY "
+                       "in the environment or a .env file, then restart the app.")  # fmt: skip
+    return key
+
+
+def _brief_payload(request: Request, entry_id: int, flt: RoundFilter) -> dict:
+    entry = get_entry(entry_id, request)
+    snapshot = labelled(request, entry_id, filtered_snapshot(_version_dir(request, entry_id), flt))
+    payload = ai_payload.build(snapshot, entry, active_filter(flt))
+    try:
+        ai_payload.check(payload)
+    except ai_payload.PayloadLeak as exc:
+        raise ApiError(500, ErrorCode.EXPORT_BLOCKED, str(exc)) from exc
+    return payload
+
+
+@router.post("/entries/{entry_id}/ai-brief/preview")
+def preview_brief(entry_id: int, body: FilterBody, request: Request) -> dict:
+    """FR-AI-2: exactly what would be sent, and the token that confirms it. Sends nothing."""
+    _ai_key(request)
+    payload = _brief_payload(request, entry_id, body.round_filter())
+    digest = ai_payload.digest(payload)
+    message = ai_client.user_message(ai_payload.canonical(payload))
+    return {
+        "model": _state(request).settings.ai_model, "payload": payload, "payload_hash": digest,
+        "instructions": ai_client.INSTRUCTIONS,
+        "estimated_input_tokens": ai_payload.estimate_tokens(ai_client.INSTRUCTIONS + message),
+        "token": ai_confirm.make(_state(request).ai_secret, entry_id, digest, _now()),
+        "expires_in_s": ai_confirm.TTL_S,
+    }  # fmt: skip
+
+
+class BriefRequest(FilterBody):
+    token: str = Field(min_length=1, max_length=200)
+
+
+@router.post("/entries/{entry_id}/ai-brief")
+def create_brief(entry_id: int, body: BriefRequest, request: Request) -> dict:
+    """J5: one call to Claude for the previewed payload. Only a grounded brief is saved."""
+    key = _ai_key(request)
+    state = _state(request)
+    payload = _brief_payload(request, entry_id, body.round_filter())
+    digest = ai_payload.digest(payload)
+    if not ai_confirm.valid(state.ai_secret, body.token, entry_id, digest, _now()):
+        raise ApiError(403, ErrorCode.FORBIDDEN, "The data changed since the preview (filters "
+                       "or analysis), or the preview expired. Preview again.")  # fmt: skip
+    with state.ai_lock:
+        if body.token in state.ai_used:
+            raise ApiError(403, ErrorCode.FORBIDDEN, "This preview was already sent. Preview "
+                           "again to send another request.")  # fmt: skip
+        if entry_id in state.ai_busy:
+            raise ApiError(409, ErrorCode.CONFLICT_JOB_RUNNING,
+                           "A brief for this analysis is already being written.")  # fmt: skip
+        state.ai_used.add(body.token)
+        state.ai_busy.add(entry_id)
+    try:
+        answer, served_by = ai_client.write_brief(
+            ai_payload.canonical(payload), api_key=key, model=state.settings.ai_model,
+            http_client=state.ai_http_client,
+        )  # fmt: skip
+        brief = ai_grounding.ground(answer, payload["findings"])
+    except ai_client.Upstream as exc:
+        raise ApiError(502, ErrorCode.AI_UPSTREAM, str(exc)) from exc
+    except ai_grounding.Ungrounded as exc:
+        raise ApiError(422, ErrorCode.AI_UNGROUNDED, str(exc)) from exc
+    finally:
+        with state.ai_lock:
+            state.ai_busy.discard(entry_id)
+    try:
+        state.library.save_brief(entry_id, payload["analysis_version"], served_by, digest,
+                                 brief | {"filter": payload["filter"]})  # fmt: skip
+    except sqlite3.IntegrityError as exc:  # the analysis was deleted during the call
+        raise not_found("entry") from exc
+    return state.library.latest_brief(entry_id)
+
+
+@router.get("/entries/{entry_id}/ai-brief")
+def get_brief(entry_id: int, request: Request) -> dict:
+    _entry(request, entry_id)
+    brief = _state(request).library.latest_brief(entry_id)
+    if brief is None:
+        raise not_found("AI brief")
+    return brief

@@ -7,6 +7,7 @@ module only gathers data for templates and turns API errors into readable messag
 
 from __future__ import annotations
 
+import json
 import shutil
 import uuid
 from pathlib import Path
@@ -15,6 +16,7 @@ import polars as pl
 from fastapi import APIRouter, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
+from starlette.concurrency import run_in_threadpool
 
 from cs2scout import __version__
 from cs2scout.core.findings import RoundFilter
@@ -30,9 +32,11 @@ from cs2scout.web.findings_view import filtered_snapshot
 
 router = APIRouter()
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
-TABS = ("overview", "t", "ct", "utility", "players", "demos")
+TABS = ("overview", "t", "ct", "utility", "players", "demos", "brief")
 BUYS = ("pistol", "eco", "force", "full")
 ROLES = ("core", "standin", "excluded")
+KIND_GROUPS = {"team": "team", "ts": "T side", "ct": "CT side", "util": "utility",
+               "plr": "players"}  # fmt: skip
 
 
 def _page(request: Request, name: str, **context) -> HTMLResponse:
@@ -48,8 +52,9 @@ def _redirect(url: str) -> Response:
     return Response(headers={"HX-Redirect": url})
 
 
-def _filter(request: Request) -> RoundFilter:
-    q = request.query_params
+def _filter(request: Request, values=None) -> RoundFilter:
+    """The filter form's values: the query string, or a submitted form (``values``)."""
+    q = request.query_params if values is None else values
     submitted = "f" in q  # the filter form was used: an unticked box means "exclude"
     return RoundFilter(
         side=q.get("side") or None,
@@ -212,9 +217,11 @@ def entry_page(entry_id: int, request: Request, tab: str = "overview") -> HTMLRe
     vdir = request.app.state.library.current_version_dir(entry_id)
     # Built before pattern mining existed (or by an older format): offer a recompute.
     outdated = vdir is not None and not (vdir / "patterns.json").exists()
+    brief = _brief(request, entry_id)
+    fresh_brief = brief is not None and not brief["stale"]
     return _page(request, "entry.html", **(tab_ctx | {"entry": entry, "tab": tab,
                  "snapshot": snapshot, "buys": BUYS, "tab_template": tab_template,
-                 "outdated": outdated}))  # fmt: skip
+                 "outdated": outdated, "fresh_brief": fresh_brief}))  # fmt: skip
 
 
 @router.get("/ui/entries/{entry_id}/tab/{tab}", response_class=HTMLResponse)
@@ -250,7 +257,14 @@ def _tab_context(request: Request, entry: dict, tab: str, flt: RoundFilter) -> d
         ], "heat": _heat_choices(snapshot, snapshot["roster"][0]["player_key"]
                                  if snapshot["roster"] else "team")}  # fmt: skip
         ctx |= _player_patterns(snapshot)
+    elif tab == "brief":
+        ctx |= {"ai_enabled": api.ai_enabled(request), "brief": _brief(request, entry["id"]),
+                "ai_model": request.app.state.settings.ai_model}  # fmt: skip
     return ctx
+
+
+def _brief(request: Request, entry_id: int) -> dict | None:
+    return request.app.state.library.latest_brief(entry_id)
 
 
 def _visible(findings: list[dict], kind: str) -> list[dict]:
@@ -437,3 +451,38 @@ def ui_export(entry_id: int, request: Request) -> Response:
         return _error(request, getattr(exc, "message", str(exc)))
     return Response(html, media_type="text/html; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="{name}"'})  # fmt: skip
+
+
+# ---------------------------------------------------------------- AI brief (J5)
+
+
+def _filter_body(flt: RoundFilter, **extra) -> dict:
+    return {"side": flt.side, "buy": list(flt.buy), "opp_buy": list(flt.opp_buy),
+            "demos": list(flt.demos), "date_from": flt.date_from, "date_to": flt.date_to,
+            "ot": flt.include_ot} | extra  # fmt: skip
+
+
+@router.post("/ui/entries/{entry_id}/ai-brief/preview", response_class=HTMLResponse)
+async def ui_brief_preview(entry_id: int, request: Request) -> HTMLResponse:
+    body = api.FilterBody(**_filter_body(_filter(request, await request.form())))
+    try:
+        preview = await run_in_threadpool(api.preview_brief, entry_id, body, request)
+    except ApiError as exc:
+        return _error(request, exc.message)
+    payload = preview["payload"]
+    kinds = sorted({KIND_GROUPS.get(f["kind"].split(".")[0], "other") for f in payload["findings"]})
+    text = json.dumps(payload, indent=1, ensure_ascii=False)
+    return _page(request, "_ai_preview.html", entry_id=entry_id, preview=preview, kinds=kinds,
+                 payload_json=text)  # fmt: skip
+
+
+@router.post("/ui/entries/{entry_id}/ai-brief", response_class=HTMLResponse)
+async def ui_brief_send(entry_id: int, request: Request) -> Response:
+    form = await request.form()
+    body = api.BriefRequest(**_filter_body(_filter(request, form), token=form.get("token", "")))
+    try:
+        # The call to Claude can take minutes: keep it off the event loop.
+        await run_in_threadpool(api.create_brief, entry_id, body, request)
+    except ApiError as exc:
+        return _page(request, "_ai_failed.html", message=exc.message, code=exc.code)
+    return _redirect(f"/entries/{entry_id}?tab=brief")

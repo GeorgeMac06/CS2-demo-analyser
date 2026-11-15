@@ -1,0 +1,15 @@
+{% if not static %}
+<div class="card">
+{% if not ai_enabled %}
+  <p><strong>AI briefs are off.</strong> They need a Claude API key. Everything else in the app works without one.</p>
+  <p class="muted">Put <code>ANTHROPIC_API_KEY=...</code> in a <code>.env</code> file in the workspace folder (or set it as an environment variable), then restart the app. The key stays on this PC and is never written to exports or logs.</p>
+{% else %}
+  <p>Claude ({{ ai_model }}) can turn these findings into an anti-strat brief: team tendencies, player habits and suggested counters. Every claim must cite findings from this analysis.</p>
+  <p class="muted">The brief uses the filters above. You see exactly what will be sent before anything leaves this PC. Each brief is one paid API call.</p>
+  <form hx-post="/ui/entries/{{ entry.id }}/ai-brief/preview" hx-include="#filters" hx-target="#ai-step">
+    <button type="submit">Preview what is sent</button></form>
+{% endif %}
+</div>
+<div id="ai-step" aria-live="polite"></div>
+{% endif %}
+{% if brief %}{% include "_brief.html" %}{% elif not static %}<p class="muted">No brief yet.</p>{% endif %}

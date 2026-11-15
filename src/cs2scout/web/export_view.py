@@ -20,7 +20,7 @@ from cs2scout.web import api, pages
 from cs2scout.web.figures import heatmap_figure
 
 SECTIONS = {"overview": "Overview", "t": "T side", "ct": "CT side", "utility": "Utility",
-            "players": "Players"}  # fmt: skip
+            "players": "Players", "brief": "AI brief"}  # fmt: skip
 STATIC = Path(__file__).parent / "static"
 GALLERY = [("T", "early"), ("T", "mid"), ("T", "late"), ("T", "post_plant"), ("CT", "early"),
            ("CT", "mid"), ("CT", "late")]  # fmt: skip
@@ -67,7 +67,10 @@ def render(request: Request, entry_id: int, sections: list[str], flt: RoundFilte
         raise api.ApiError(409, "NOT_COMPUTED", "this analysis has not been computed yet")
     chosen = [s for s in SECTIONS if s in sections] or list(SECTIONS)
     rendered = []
+    brief = request.app.state.library.latest_brief(entry_id)
     for tab in chosen:
+        if tab == "brief" and (brief is None or brief["stale"]):
+            continue  # FR-EXP-3: only a brief that matches this analysis is shared
         ctx = pages._tab_context(request, entry, tab, flt)
         template = ctx.pop("template")
         for side in ctx.get("lineup_sides", []):
@@ -87,7 +90,7 @@ def render(request: Request, entry_id: int, sections: list[str], flt: RoundFilte
             if path is not None:
                 radars[name + ("_lower" if lower else "")] = data_uri(path)
     used = [d for d in snapshot["demos"] if d["used"]]
-    active = {k: v for k, v in vars(flt).items() if v not in ((), None, True)}
+    active = api.active_filter(flt)
     page = pages.templates.get_template("export.html").render(
         csp=CSP, entry=entry, snapshot=snapshot, sections=rendered, demos=used,
         filter=active, version=__version__, radars=json.dumps(radars),

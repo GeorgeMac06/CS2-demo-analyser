@@ -1,0 +1,13 @@
+<article class="card brief" aria-label="AI brief">
+  <p><span class="chip">AI-generated</span>{% if brief.stale %} <span class="chip warn">stale</span>{% endif %}
+    <span class="muted">Written by {{ brief.model }} on {{ brief.created_at[:16].replace("T", " ") }} UTC from analysis version {{ brief.entry_version }}{% if brief.filter %} · filtered: {% for k, v in brief.filter.items() %}{{ k.replace("_", " ") }} {{ v if v is string else v | join(", ") }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}.</span></p>
+  {% if brief.stale %}<p class="muted">The analysis has changed since this brief was written (it is now version {{ brief.current_version }}). Generate a new brief for current numbers.</p>{% endif %}
+  {% if brief.dropped %}<p class="muted">{{ brief.dropped }} of {{ brief.claims }} claims were left out because they did not cite findings from this analysis.</p>{% endif %}
+  {% for s in brief.sections %}
+  <h3>{{ s.title }}</h3>
+  {% if s.id == "counters" %}<p class="muted">Suggestions from Claude, not observations.</p>{% endif %}
+  <ul class="claims">{% for c in s.claims %}
+    <li>{{ c.text }}<br>{% for f in c.cites %}<span class="chip" title="{{ f.id }}">{{ f.title }}{% if f.k is not none %} · {{ f.k }}/{{ f.n }}{% endif %}</span> {% endfor %}</li>{% endfor %}
+  </ul>
+  {% endfor %}
+</article>

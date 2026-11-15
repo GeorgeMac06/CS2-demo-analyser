@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import secrets
+import threading
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -41,6 +43,13 @@ def create_app(settings: Settings, token: str) -> FastAPI:
     app.state.token = token
     app.state.library = library
     app.state.runner = runner
+    # AI brief (FR-AI-2): per-launch HMAC secret for preview tokens, single-use tokens, one
+    # call per entry at a time. Tests replace ai_http_client with a fake transport.
+    app.state.ai_secret = secrets.token_bytes(32)
+    app.state.ai_used = set()
+    app.state.ai_busy = set()
+    app.state.ai_lock = threading.Lock()
+    app.state.ai_http_client = None
     errors.install(app)
 
     @app.get("/api/health")
