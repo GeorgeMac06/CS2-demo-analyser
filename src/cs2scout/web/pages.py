@@ -423,3 +423,17 @@ async def ui_label(entry_id: int, finding_id: str, request: Request) -> HTMLResp
     response = _page(request, "_label_saved.html", label=saved["label"])
     response.headers["HX-Trigger"] = "labels-changed"  # the open tab reloads with the name
     return response
+
+
+@router.get("/ui/entries/{entry_id}/export")
+def ui_export(entry_id: int, request: Request) -> Response:
+    """Download the shareable brief (FR-EXP-1). Sections and filters come from the query."""
+    from cs2scout.web.export_view import ExportLeak, render
+
+    sections = request.query_params.getlist("sections")
+    try:
+        name, html = render(request, entry_id, sections, _filter(request))
+    except (ApiError, ExportLeak) as exc:
+        return _error(request, getattr(exc, "message", str(exc)))
+    return Response(html, media_type="text/html; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})  # fmt: skip

@@ -11,6 +11,16 @@
   </div>
   <div class="row" style="margin-left:auto">
     <a class="button" href="/entries/{{ entry.id }}/add">Add demos</a>
+    <details><summary>Export</summary>
+      <form class="card" method="get" action="/ui/entries/{{ entry.id }}/export" data-export
+            aria-label="Export a brief">
+        <p class="muted">One HTML file teammates open in any browser, offline.</p>
+        {% for key, label in [("overview", "Overview"), ("t", "T side"), ("ct", "CT side"), ("utility", "Utility"), ("players", "Players")] %}
+        <label><input type="checkbox" name="sections" value="{{ key }}" checked> {{ label }}</label>{% endfor %}
+        <p><label><input type="checkbox" name="use_filters"> apply the current filters</label></p>
+        <button type="submit">Download brief</button>
+      </form>
+    </details>
     <details><summary>Rename</summary>
       <form hx-post="/ui/entries/{{ entry.id }}/rename" hx-target="#notice">
         <label>New name <input name="name" value="{{ entry.name }}" maxlength="120" required></label>

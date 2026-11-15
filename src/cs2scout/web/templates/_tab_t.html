@@ -1,4 +1,4 @@
-{% import "_macros.html" as m %}
+{% import "_macros.html" as m with context %}
 {% set eid = entry.id %}
 {% macro util(f) -%}
   {%- set u = f.params.utility_median or {} -%}

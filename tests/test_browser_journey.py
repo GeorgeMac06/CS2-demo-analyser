@@ -161,3 +161,33 @@ def test_name_a_strategy_in_the_browser(page, app_url, tmp_path_factory) -> None
     expect(page.get_by_role("table", name="Strategy").get_by_text("B apps fast")).to_be_visible()
     page.reload()
     expect(page.get_by_text("B apps fast")).to_be_visible()  # stored, not just on screen
+
+
+def test_exported_brief_works_offline(browser, app_url, tmp_path_factory) -> None:
+    """T-13 / AT-10: the exported file opens with no network at all and every chart draws."""
+    from support.api import Api, make_api
+    from support.scenarios import scouted_match
+
+    root = tmp_path_factory.mktemp("export")
+    for i, opp in enumerate(("b", "c", "d")):
+        write_demo(root / f"x{i}.dem", scouted_match(opp, f"off{i}"))
+    client, settings = make_api(root / "workspace")
+    with client:
+        api = Api(client, settings)
+        entry = api.confirm(api.run_import([root]), team_name="Scouted")
+        html = api.post(f"/api/entries/{entry}/export", {}).text
+    path = root / "brief.html"
+    path.write_text(html, encoding="utf-8")
+
+    context = browser.new_context(offline=True, viewport={"width": 1280, "height": 900})
+    page = context.new_page()
+    requests, errors = [], []
+    page.on("request", lambda r: requests.append(r.url) if not r.url.startswith("file:") else None)
+    page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+    page.goto(path.as_uri())
+    figures = page.locator("[data-figure]").count()
+    expect(page.locator(".js-plotly-plot")).to_have_count(figures)
+    assert figures >= 5
+    assert requests == [], requests
+    assert errors == [], errors
+    context.close()

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="{{ csp }}">
+  <title>{{ entry.team }} · {{ entry.map }} · scouting brief</title>
+  <style>{{ css | safe }}
+    nav.toc a { margin-right: 14px; }
+    section.export-section { margin-top: 28px; padding-top: 8px; border-top: 2px solid var(--line); }
+    @media print { nav.toc, details > summary { display: none; } .chart { break-inside: avoid; } }
+  </style>
+  <script>{{ plotly | safe }}</script>
+</head>
+<body>
+<main>
+  <h1>{{ entry.team }} on {{ entry.map }}</h1>
+  <p class="muted">Scouting brief · {{ demos | length }} demo{{ "s" if demos | length != 1 }}
+    {% if demos %}({{ demos[0].played_at[:10] if demos[0].played_at }} – {{ demos[-1].played_at[:10] if demos[-1].played_at }}){% endif %}
+    · {{ snapshot.round_index | length }} rounds · generated {{ generated }} with CS2 Demo Scout {{ version }}</p>
+  {% if filter %}<p><span class="chip warn">Filtered</span> {% for k, v in filter.items() %}{{ k.replace("_", " ") }}: {{ v if v is string else v | join(", ") }}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+  <div class="card muted">Every number shows how often it happened ("k/n" = seen in k of n eligible
+    rounds). A pattern is listed only with 3+ rounds, 10%+ of eligible rounds and in 2+ demos.
+    "Low sample" marks numbers based on fewer than 10 rounds: treat them as hints.</div>
+  <nav class="toc" aria-label="Sections">{% for s in sections %}<a href="#{{ s.id }}">{{ s.title }}</a>{% endfor %}</nav>
+  {% for s in sections %}
+  <section class="export-section" id="{{ s.id }}">
+    <h1>{{ s.title }}</h1>
+    {{ s.html | safe }}
+  </section>
+  {% endfor %}
+  <p class="muted">Contains player nicknames and match statistics only; no account IDs. Map images: awpy-data.</p>
+</main>
+<script type="application/json" id="radars">{{ radars | safe }}</script>
+<script>{{ script | safe }}</script>
+</body>
+</html>

@@ -340,3 +340,34 @@ def get_rounds(
     rounds = filtered_snapshot(_version_dir(request, entry_id), RoundFilter())["round_index"]
     wanted = set(refs)
     return [r for r in rounds if not wanted or r["ref"] in wanted]
+
+
+class ExportRequest(BaseModel):
+    sections: list[Literal["overview", "t", "ct", "utility", "players"]] = []
+    side: Literal["T", "CT"] | None = None
+    buy: list[Buy] = []
+    opp_buy: list[Buy] = []
+    demos: list[str] = []
+    date_from: str | None = None
+    date_to: str | None = None
+    ot: bool = True
+
+
+@router.post("/entries/{entry_id}/export")
+def export_entry(entry_id: int, body: ExportRequest, request: Request):
+    """The same self-contained HTML brief, for scripts (FR-EXP-1)."""
+    from fastapi.responses import Response
+
+    from cs2scout.web.export_view import ExportLeak, render
+
+    flt = RoundFilter(
+        side=body.side, buy=tuple(sorted(body.buy)), opp_buy=tuple(sorted(body.opp_buy)),
+        demos=tuple(sorted(body.demos)), date_from=body.date_from, date_to=body.date_to,
+        include_ot=body.ot,
+    )  # fmt: skip
+    try:
+        name, html = render(request, entry_id, list(body.sections), flt)
+    except ExportLeak as exc:
+        raise ApiError(500, ErrorCode.EXPORT_BLOCKED, str(exc)) from exc
+    return Response(html, media_type="text/html; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})  # fmt: skip

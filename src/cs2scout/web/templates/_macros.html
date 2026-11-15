@@ -1,6 +1,9 @@
 {# "k of n" support: opens the rounds behind a finding (FR-CONF-1, FR-CONF-3). #}
 {% macro support(entry_id, f, label=None) -%}
-  {%- if f -%}
+  {%- if f and static -%}
+  <span title="{{ f.support.k }} of {{ f.support.n }} eligible rounds, in {{ f.support.demos }} demo(s)">{{ f.support.k }}/{{ f.support.n }}</span>
+  {%- if "low_sample" in f.flags %} <span class="chip warn">low sample</span>{% endif -%}
+  {%- elif f -%}
   <button type="button" class="support"
     hx-get="/ui/entries/{{ entry_id }}/rounds?title={{ (label or f.title) | urlencode }}{% for r in f.round_refs %}&refs={{ r | urlencode }}{% endfor %}"
     hx-target="#drawer" title="{{ f.support.k }} of {{ f.support.n }} eligible rounds, in {{ f.support.demos }} demo(s). Click to list them.">
@@ -20,7 +23,7 @@
 {% macro named(eid, f) -%}
   {%- if f.label %}<strong>{{ f.label }}</strong><br><span class="muted">{{ f.title }}</span>
   {%- else %}{{ f.title }}{% endif %}
-  {%- if f.stable_key %}
+  {%- if f.stable_key and not static %}
   <details class="rename"><summary aria-label="Name this pattern" title="Name this pattern">✎</summary>
     <form hx-post="/ui/entries/{{ eid }}/labels/{{ f.id }}" hx-swap="none" class="row">
       <input name="label" value="{{ f.label or '' }}" maxlength="80" aria-label="Your name for: {{ f.title }}">

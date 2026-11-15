@@ -1,4 +1,17 @@
-{% if not heat.has_grids %}
+{% if static %}
+  {% if heat_gallery %}
+  {% import "_macros.html" as m with context %}
+  {% for h in heat_gallery %}
+  <h3><span class="side-{{ h.side }}">{{ h.side }}</span> · {{ h.phase }}</h3>
+  <div class="grid2">
+    <div class="card">{{ m.figure("fig-heat-" ~ h.id, h.figure) }}</div>
+    <div class="card table-wrap"><table><caption>Most time spent ({{ h.meta.samples }} position samples)</caption>
+      <thead><tr><th>Place</th><th class="num">Share of time</th></tr></thead>
+      <tbody>{% for p in h.meta.top_places %}<tr><td>{{ p.place }}</td><td class="num">{{ p.share }}%</td></tr>{% endfor %}</tbody></table></div>
+  </div>
+  {% endfor %}
+  {% else %}<p class="muted">Per-player heatmaps are available in the app.</p>{% endif %}
+{% elif not heat.has_grids %}
 <div class="card muted">No position data yet.</div>
 {% else %}
 <form class="card row" hx-get="/ui/entries/{{ entry.id }}/heatmap" hx-target="#heat" hx-trigger="load, change"

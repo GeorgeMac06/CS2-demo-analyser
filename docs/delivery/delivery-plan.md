@@ -38,8 +38,13 @@
 <br>• Player keys are now stable pseudonyms per SteamID, so roster edits never move labels or patterns to another player.
 <br>• New tabs: T side (site and tempo with a histogram, strategies, setups, buy rounds, post-plants, fakes), CT side (stacks, setups, positions, rotations, early duels, retakes and saves), Utility (T and CT lineups on the radar). Players gains suggested roles with their evidence, plus habits. Weaker signals stay folded away.
 <br>• Bug fixed: SQLite reuses a deleted entry's id, so the filtered-findings cache could show a new entry the deleted entry's results. The cache now keys on the findings file's identity.
-<br>**M2 owner review (G-manual) is open:** judge the top patterns per tab on your own demos as plausible / wrong / unclear.
-<br>**Next after M2:** WU-14 (export), WU-15 (AI brief), WU-16 (settings, docs, final journey). P-6 (radar image licence) is still open before any export is shared.|
+<br>**M2 owner review (G-manual): passed** (2026-11-15). The owner reviewed the patterns on their own demos: "Looks right".
+<br>**WU-14 done** (2026-11-15). The Export menu on the entry page downloads one self-contained HTML brief, with sections to choose and the current filters optional; the API also offers `POST /api/entries/{id}/export`.
+<br>• The same section templates are rendered in static mode: no controls, support shown as plain k/n, and a gallery of team heatmaps instead of the picker.
+<br>• Plotly, CSS and the radar image are inlined. Radars are embedded once and resolved by a small inline script. A strict CSP blocks all network access.
+<br>• A leak guard refuses to write an export containing a SteamID or a local file path (`EXPORT_BLOCKED`).
+<br>• The real 4-demo brief is 5.3 MB, and all 11 figures render offline.
+<br>**Next:** WU-15 (AI brief), WU-16 (settings, docs, final journey). P-6 (radar image licence) is still open before any export is shared.|
 | Outcome | The owner can import N demos of one team on one map. They can explore team and player patterns with support counts, and export a brief for teammates. The AI summary is optional. |
 
 **What this plan covers:**

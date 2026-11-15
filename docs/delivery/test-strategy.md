@@ -111,4 +111,5 @@ There is no CI yet, so gates are run locally. Adding CI is a trigger for `ln-63`
 | T-10 | **PASS**: known-answer scenario (`tests/support/scenarios.py`) for T strategies, fakes, unresolved rounds, buy rounds, post-plants, CT setups and stacks, positions, rotations, early duels, retakes and saves, lineups, habits, weapons, roles, and the 2-demo rule | `tests/test_patterns_api.py` |
 | T-11 | **PASS**: carry-over rules; label survives an added demo; a role label hides while its player is excluded and returns; clear/unknown label; player keys stable through roster edits | `tests/test_labels.py`, `tests/test_findings_api.py` |
 | T-17 (extended) | **PASS**: rename a strategy in the browser, and it persists after a reload | `tests/test_browser_journey.py` |
-| T-13..T-15 | Not started (WU-14 onwards) | — |
+| T-13 | **PASS**: self-contained, strict CSP, no live controls, counts equal the app, sections/filters, leak guard blocks a SteamID-like nickname; offline in Chromium with 0 requests, all figures drawn, 0 console errors | `tests/test_export.py`, `tests/test_browser_journey.py` |
+| T-14, T-15 | Not started (WU-15) | — |

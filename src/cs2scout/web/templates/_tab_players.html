@@ -1,4 +1,4 @@
-{% import "_macros.html" as m %}
+{% import "_macros.html" as m with context %}
 {% set eid = entry.id %}
 <h2>Players {% if side != "all" %}<span class="side-{{ side }}">({{ side }})</span>{% endif %}</h2>
 <div class="card table-wrap">
@@ -60,6 +60,7 @@
 <h2>Where each player plays</h2>
 {% include "_heat_picker.html" %}
 
+{% if not static %}
 <details class="card">
   <summary><strong>Edit roster</strong> <span class="muted">(recomputes the analysis)</span></summary>
   <form hx-post="/ui/entries/{{ eid }}/roster" hx-target="#roster-job">
@@ -79,6 +80,7 @@
   </form>
   <div id="roster-job"></div>
 </details>
+{% endif %}
 
 <h2>Suggested roles</h2>
 <p class="muted">Rule-based suggestions with the numbers behind them. Rename a role (✎) to override it.</p>
