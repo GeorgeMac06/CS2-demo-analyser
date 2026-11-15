@@ -79,3 +79,42 @@
   </form>
   <div id="roster-job"></div>
 </details>
+
+<h2>Suggested roles</h2>
+<p class="muted">Rule-based suggestions with the numbers behind them. Rename a role (✎) to override it.</p>
+<div class="card table-wrap">
+  <table>
+    <caption class="sr-only">Suggested roles and their evidence</caption>
+    <thead><tr><th>Player</th><th>Role</th><th class="num">AWP</th><th class="num">T opening duels</th>
+      <th class="num">Flashes / round</th><th class="num">T distance from team</th><th>CT spot</th><th class="num">Rotates</th></tr></thead>
+    <tbody>
+    {% for p in players %}{% set r = roles.get(p.member.player_key) %}
+      {% if r %}{% set mt = r.params.metrics %}
+      <tr><td>{{ p.member.nick }}</td><td>{{ m.named(eid, r) }}</td>
+        <td class="num">{{ (mt.awp_share * 100) | round | int }}%</td>
+        <td class="num">{{ (mt.t_opening_rate * 100) | round | int }}% of rounds</td>
+        <td class="num">{{ mt.flashes_per_round }}</td><td class="num">{{ mt.t_spread }} u</td>
+        <td>{% if mt.ct_main_place %}{{ mt.ct_main_place }} ({{ (mt.ct_main_share * 100) | round | int }}%){% else %}—{% endif %}</td>
+        <td class="num">{{ (mt.rotation_rate * 100) | round | int }}%</td></tr>
+      {% endif %}
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2>Habits</h2>
+{% set any_habit = namespace(found=false) %}
+<div class="card table-wrap">
+  <table>
+    <caption class="sr-only">Recurring individual habits</caption>
+    <thead><tr><th>Player</th><th>Habit</th><th>Rounds</th></tr></thead>
+    <tbody>
+    {% for p in players %}{% set h = habits.get(p.member.player_key, {}) %}
+      {% for kind in ("plr.habit", "plr.weapon", "plr.clutch") %}{% for f in h.get(kind, []) %}{% set any_habit.found = true %}
+        <tr><td>{{ p.member.nick }}</td><td>{{ m.named(eid, f) }}</td><td>{{ m.support(eid, f, p.member.nick ~ ": " ~ f.title) }}</td></tr>
+      {% endfor %}{% endfor %}
+    {% endfor %}
+    {% if not any_habit.found %}<tr><td colspan="3" class="muted">No habit is frequent enough yet.</td></tr>{% endif %}
+    </tbody>
+  </table>
+</div>

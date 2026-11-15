@@ -195,9 +195,7 @@ def mine_t(rounds: list[TRound], cfg: AnalysisConfig) -> list[dict]:
             util = {k: median(r.utility.get(k, 0) for r in rs)
                     for k in ("smokes", "flashes", "molotovs", "hes")}  # fmt: skip
             hit = median(r.hit_s for r in rs)
-            util_text = ", ".join(f"{v:g} {k}" for k, v in util.items() if v)
-            title = f"{site} {band} ~{clock(hit)} from {describe(seed)}" + (
-                f" ({util_text})" if util_text else "")  # fmt: skip
+            title = f"{site} {band} ~{clock(hit)} from {describe(seed)}"
             out.append(pattern("ts.strategy", (site, band, seed), "team", title, {
                 "site": site, "tempo": band, "median_hit_s": hit, "setup_15s": dict(seed),
                 "utility_median": util,

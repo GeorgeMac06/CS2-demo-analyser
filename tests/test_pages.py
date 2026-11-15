@@ -71,3 +71,36 @@ def test_match_date_can_be_corrected(api: Api, entry: int) -> None:
 
 def test_radar_image_is_404_without_assets(api: Api) -> None:
     assert api.client.get("/radar/de_mirage.png").status_code == 404
+
+
+@pytest.fixture
+def scouted(api: Api, tmp_path: Path) -> int:
+    from support.scenarios import scouted_match
+
+    src = tmp_path / "scouted"
+    src.mkdir()
+    for i, opp in enumerate(("b", "c", "d")):
+        write_demo(src / f"s{i}.dem", scouted_match(opp, f"pg{i}"))
+    return api.confirm(api.run_import([src]))
+
+
+def test_pattern_tabs_render_and_rename(api: Api, scouted: int) -> None:
+    for tab in ("t", "ct", "utility", "players"):  # full pages too, not just fragments
+        assert api.client.get(f"/entries/{scouted}?tab={tab}").status_code == 200, tab
+    t_tab = api.client.get(f"/ui/entries/{scouted}/tab/t").text
+    assert "B rush" in t_tab and 'data-figure="fig-tempo"' in t_tab
+    ct_tab = api.client.get(f"/ui/entries/{scouted}/tab/ct").text
+    assert (
+        "Standard spread" in ct_tab and "Connector" in ct_tab and "Retakes after a plant" in ct_tab
+    )
+    util_tab = api.client.get(f"/ui/entries/{scouted}/tab/utility").text
+    assert "Smoke into" in util_tab and 'data-figure="fig-lineups-T"' in util_tab
+    players_tab = api.client.get(f"/ui/entries/{scouted}/tab/players").text
+    assert "AWPer" in players_tab and "Suggested roles" in players_tab
+
+    strategy = next(f for f in api.findings(scouted)["findings"]
+                    if f["kind"] == "ts.strategy" and f["params"]["site"] == "B")  # fmt: skip
+    saved = api.client.post(f"/ui/entries/{scouted}/labels/{strategy['id']}",
+                            data={"label": "B apps fast"}, headers=api.headers)  # fmt: skip
+    assert saved.headers.get("HX-Trigger") == "labels-changed"
+    assert "B apps fast" in api.client.get(f"/ui/entries/{scouted}/tab/t").text

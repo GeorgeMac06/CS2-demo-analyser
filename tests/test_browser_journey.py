@@ -136,3 +136,28 @@ def test_pages_render_without_console_errors(page, app_url) -> None:
 @pytest.fixture
 def browser_context_args(browser_context_args):
     return {**browser_context_args, "viewport": {"width": 1280, "height": 900}}
+
+
+def test_name_a_strategy_in_the_browser(page, app_url, tmp_path_factory) -> None:
+    from support.scenarios import scouted_match
+
+    base, _ = app_url
+    page.set_default_timeout(60_000)
+    folder = tmp_path_factory.mktemp("scouted")
+    for i, opp in enumerate(("b", "c", "d")):
+        write_demo(folder / f"s{i}.dem", scouted_match(opp, f"br{i}"))
+    page.goto(base + "/new")
+    page.get_by_label("Demo files or folders on this PC").fill(str(folder))
+    page.get_by_role("button", name="Import", exact=True).click()
+    page.get_by_role("button", name="Create analysis").click()
+    page.wait_for_url(re.compile(r".*/entries/\d+$"))
+
+    page.get_by_role("link", name="T side", exact=True).click()
+    strategies = page.get_by_role("table", name="Strategy")
+    row = strategies.get_by_role("row").filter(has_text="B rush")
+    row.get_by_text("✎").click()
+    row.get_by_role("textbox").fill("B apps fast")
+    row.get_by_role("button", name="Save").click()
+    expect(page.get_by_role("table", name="Strategy").get_by_text("B apps fast")).to_be_visible()
+    page.reload()
+    expect(page.get_by_text("B apps fast")).to_be_visible()  # stored, not just on screen

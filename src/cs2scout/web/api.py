@@ -5,6 +5,7 @@ SteamIDs travel as strings: they exceed JavaScript's safe integer range.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import date
 from typing import Annotated, Literal
@@ -14,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from cs2scout.core.errors import ErrorCode
 from cs2scout.core.findings import RoundFilter
+from cs2scout.core.labels import apply as apply_labels
 from cs2scout.jobs.analysis import run_recompute
 from cs2scout.jobs.import_job import ImportOptions, run_import
 from cs2scout.jobs.runner import JobConflict, JobContext
@@ -302,7 +304,30 @@ def get_findings(
     flt = RoundFilter(side=side, buy=tuple(sorted(buy)), opp_buy=tuple(sorted(opp_buy)),
                       demos=tuple(sorted(demos)), date_from=date_from, date_to=date_to,
                       include_ot=ot)  # fmt: skip
-    return filtered_snapshot(_version_dir(request, entry_id), flt)
+    return labelled(request, entry_id, filtered_snapshot(_version_dir(request, entry_id), flt))
+
+
+def labelled(request: Request, entry_id: int, snapshot: dict) -> dict:
+    """The cached snapshot with the Analyst's current labels on top (no recompute needed)."""
+    labels = _state(request).library.labels(entry_id)
+    return snapshot | {"findings": apply_labels(snapshot["findings"], labels)}
+
+
+class Label(BaseModel):
+    label: str | None = Field(default=None, max_length=80)
+
+
+@router.put("/entries/{entry_id}/labels/{finding_id}")
+def put_label(entry_id: int, finding_id: str, body: Label, request: Request) -> dict:
+    """Name a pattern or override a suggested role (FR-TS-3, FR-PLR-1). Empty clears it."""
+    vdir = _version_dir(request, entry_id)
+    patterns = json.loads((vdir / "patterns.json").read_text(encoding="utf-8"))
+    found = next((p for p in patterns if p["id"] == finding_id), None)
+    if found is None:
+        raise not_found("pattern")
+    text = (body.label or "").strip() or None
+    _state(request).library.set_label(entry_id, found["kind"], found["stable_key"], text)
+    return {"id": finding_id, "label": text}
 
 
 @router.get("/entries/{entry_id}/rounds")

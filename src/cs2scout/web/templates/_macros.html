@@ -15,3 +15,52 @@
 {%- endmacro %}
 
 {% macro num(v, suffix="") -%}{% if v is none %}—{% else %}{{ v }}{{ suffix }}{% endif %}{%- endmacro %}
+
+{# A pattern's name: the Analyst's label if set (auto title underneath), plus a rename box. #}
+{% macro named(eid, f) -%}
+  {%- if f.label %}<strong>{{ f.label }}</strong><br><span class="muted">{{ f.title }}</span>
+  {%- else %}{{ f.title }}{% endif %}
+  {%- if f.stable_key %}
+  <details class="rename"><summary aria-label="Name this pattern" title="Name this pattern">✎</summary>
+    <form hx-post="/ui/entries/{{ eid }}/labels/{{ f.id }}" hx-swap="none" class="row">
+      <input name="label" value="{{ f.label or '' }}" maxlength="80" aria-label="Your name for: {{ f.title }}">
+      <button type="submit" class="secondary">Save</button></form>
+  </details>
+  {%- endif %}
+{%- endmacro %}
+
+{% macro clock(s) -%}{% if s is none %}—{% else %}{{ (s // 60) | int }}:{{ "%02d" | format((s % 60) | round | int) }}{% endif %}{%- endmacro %}
+
+{% macro recency(f) -%}
+  {%- if f.recency.last_seen %}{{ f.recency.last_seen[:10] }}{% endif %}
+  {%- if f.recency.share_last_3_demos is not none %} <span class="muted">({{ (f.recency.share_last_3_demos * 100) | round | int }}% in last 3 demos)</span>{% endif %}
+{%- endmacro %}
+
+{% macro pattern_table(eid, items, caption, extra=None) -%}
+{% if items %}
+<div class="card table-wrap">
+  <table>
+    <caption class="sr-only">{{ caption }}</caption>
+    <thead><tr><th>{{ caption }}</th><th>Rounds</th><th class="num">Won</th><th class="num">Demos</th>
+      {% if extra %}<th>{{ extra[0] }}</th>{% endif %}<th>Last seen</th></tr></thead>
+    <tbody>
+    {% for f in items %}
+      <tr><td>{{ named(eid, f) }}</td><td>{{ support(eid, f, f.label or f.title) }}</td>
+        <td class="num">{{ num(f.outcome.win_pct, "%") }}</td><td class="num">{{ f.support.demos }}</td>
+        {% if extra %}<td>{{ extra[1](f) }}</td>{% endif %}<td>{{ recency(f) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="muted">Nothing here reaches the support threshold yet (3+ rounds, 10% of eligible rounds, 2+ demos).</p>
+{% endif %}
+{%- endmacro %}
+
+{% macro weaker(eid, items) -%}
+{% if items %}
+<details class="card"><summary>Weaker signals ({{ items | length }}) <span class="muted">— below the support threshold: hints, not patterns</span></summary>
+  {{ pattern_table(eid, items, "Weaker signal") }}
+</details>
+{% endif %}
+{%- endmacro %}

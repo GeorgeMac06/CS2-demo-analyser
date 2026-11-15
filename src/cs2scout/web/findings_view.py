@@ -16,9 +16,19 @@ def load_snapshot(version_dir: Path) -> dict:
     return json.loads((version_dir / "findings.json").read_text(encoding="utf-8"))
 
 
-@lru_cache(maxsize=64)
 def filtered_snapshot(version_dir: Path, flt: RoundFilter) -> dict:
-    """The snapshot recomputed for ``flt``. Cached per (version, filter): versions are immutable."""
+    """The snapshot recomputed for ``flt``.
+
+    Cached per (version folder, its findings file's identity, filter). The file identity
+    matters: SQLite reuses a deleted entry's id, so a brand-new entry can get the same
+    ``entries/<id>/v1`` path as a deleted one, and must never be served the old results.
+    """
+    stat = (version_dir / "findings.json").stat()
+    return _filtered(version_dir, (stat.st_mtime_ns, stat.st_size), flt)
+
+
+@lru_cache(maxsize=64)
+def _filtered(version_dir: Path, _stamp: tuple[int, int], flt: RoundFilter) -> dict:
     snapshot = load_snapshot(version_dir)
     if flt == RoundFilter() or not (version_dir / "rounds.parquet").exists():
         return snapshot | {"filter": None}

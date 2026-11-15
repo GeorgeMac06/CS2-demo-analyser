@@ -1,0 +1,38 @@
+{% import "_macros.html" as m %}
+{% set eid = entry.id %}
+{% macro util(f) -%}
+  {%- set u = f.params.utility_median or {} -%}
+  {%- for k, v in u.items() if v %}{{ v | int if v == v | int else v }} {{ k }}{% if not loop.last %}, {% endif %}{% endfor -%}
+{%- endmacro %}
+{% macro hit(f) -%}{{ m.clock(f.params.median_hit_s) }}{%- endmacro %}
+
+<h2>Where and when they hit</h2>
+<div class="grid2">
+  <div class="card">
+    {% if tempo_fig %}{{ m.figure("fig-tempo", tempo_fig) }}
+    <p class="muted">Hit time: first 2 players on the site, or the plant. Dotted lines: rush &lt; 0:20, late &gt; 1:00.</p>
+    {% endif %}
+  </div>
+  <div>
+    {{ m.pattern_table(eid, sites, "Site", ("Median hit", hit)) }}
+    {{ m.pattern_table(eid, tempos, "Tempo") }}
+  </div>
+</div>
+
+<h2>Strategies</h2>
+<p class="muted">Rounds grouped by site, tempo and the opening setup. Name them to make the brief yours.</p>
+{{ m.pattern_table(eid, strategies, "Strategy", ("Utility before the hit", util)) }}
+
+<h2>Default setup at 0:30</h2>
+{{ m.pattern_table(eid, setups, "Setup") }}
+
+<h2>Pistol, eco and force rounds</h2>
+{{ m.pattern_table(eid, buy_rounds, "Buy round") }}
+
+<h2>After the plant</h2>
+{{ m.pattern_table(eid, postplants, "Post-plant setup") }}
+
+<h2>Fakes</h2>
+{{ m.pattern_table(eid, fakes, "Fake") }}
+
+{{ m.weaker(eid, weaker) }}

@@ -176,12 +176,15 @@ def test_excluding_a_demo_and_editing_roster(api: Api, entry: int) -> None:
     api.wait(api.patch(f"/api/entries/{entry}/demos/{sha}", {"included": False}).json()["job_id"])
     assert len(api.findings(entry)["demos"]) == 2
 
+    before = {m["nick"]: m["player_key"] for m in api.findings(entry)["roster"]}
     core = [str(steamid(k)) for k in TEAM[:4]]
     body = {"core": core, "excluded": [str(steamid(TEAM[4]))]}
     api.wait(api.put(f"/api/entries/{entry}/roster", body).json()["job_id"])
     snap = api.findings(entry)
     assert len(snap["roster"]) == 4
-    assert not any(f["subject"] == "p5" for f in snap["findings"])
+    assert not any(f["subject"] == before[TEAM[4]] for f in snap["findings"])
+    after = {m["nick"]: m["player_key"] for m in snap["roster"]}
+    assert all(after[k] == before[k] for k in TEAM[:4]), "keys must not shift on roster edits"
 
 
 def test_rounds_endpoint_lists_refs(shared) -> None:
@@ -237,3 +240,19 @@ def test_parser_upgrade_rebuilds_from_retained_sources(tmp_path: Path, retained:
         assert len(calls.read_text().splitlines()) == 3  # nothing to rebuild from
         assert [p["code"] for p in snap["problems"]] == ["STALE_EXTRACT"] * 3
         assert len(snap["demos"]) == 3, "old extracts are kept and used, not dropped"
+
+
+def test_new_entry_reusing_a_deleted_id_never_shows_old_results(api: Api, tmp_path: Path) -> None:
+    """SQLite reuses the id of a deleted entry; cached views must not leak across entries."""
+    first = _make_entry(api, tmp_path / "one")
+    old_rounds = len(api.findings(first)["round_index"])
+    deleted = api.delete(f"/api/entries/{first}", params={"confirm": "Dragons - de_mirage"})
+    assert deleted.status_code == 200
+    src = tmp_path / "two"
+    _write(src, "only", rich_match("q", "fresh", score=(13, 0)), day=30)
+    job = api.run_import([src])
+    second = api.confirm(job, team_name="Other", core=[str(steamid(k)) for k in TEAM])
+    assert second == first  # the id really is reused
+    snap = api.findings(second)
+    assert len(snap["round_index"]) == 13 != old_rounds
+    assert [d["score"] for d in snap["demos"]] == ["13-0"]

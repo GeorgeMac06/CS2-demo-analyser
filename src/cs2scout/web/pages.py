@@ -25,12 +25,12 @@ from cs2scout.store import assets
 from cs2scout.store.library import TMP_PREFIX
 from cs2scout.web import api
 from cs2scout.web.errors import ApiError
-from cs2scout.web.figures import heatmap_figure, winrate_figure
+from cs2scout.web.figures import heatmap_figure, lineups_figure, tempo_figure, winrate_figure
 from cs2scout.web.findings_view import filtered_snapshot
 
 router = APIRouter()
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
-TABS = ("overview", "players", "demos")
+TABS = ("overview", "t", "ct", "utility", "players", "demos")
 BUYS = ("pistol", "eco", "force", "full")
 ROLES = ("core", "standin", "excluded")
 
@@ -64,7 +64,9 @@ def _filter(request: Request) -> RoundFilter:
 
 def _snapshot(request: Request, entry_id: int, flt: RoundFilter | None = None) -> dict | None:
     vdir = request.app.state.library.current_version_dir(entry_id)
-    return filtered_snapshot(vdir, flt or RoundFilter()) if vdir else None
+    if vdir is None:
+        return None
+    return api.labelled(request, entry_id, filtered_snapshot(vdir, flt or RoundFilter()))
 
 
 # ---------------------------------------------------------------- library and import
@@ -232,6 +234,8 @@ def _tab_context(request: Request, entry: dict, tab: str, flt: RoundFilter) -> d
         )
         ctx |= {"winrates": rows, "winrate_fig": winrate_figure(snapshot["findings"]),
                 "heat": _heat_choices(snapshot, "team")}  # fmt: skip
+    elif tab in ("t", "ct", "utility"):
+        ctx |= _pattern_context(snapshot, tab)
     elif tab == "players":
         side = flt.side or "all"
         ctx |= {"side": side, "players": [
@@ -241,10 +245,61 @@ def _tab_context(request: Request, entry: dict, tab: str, flt: RoundFilter) -> d
             for m in snapshot["roster"]
         ], "heat": _heat_choices(snapshot, snapshot["roster"][0]["player_key"]
                                  if snapshot["roster"] else "team")}  # fmt: skip
+        ctx |= _player_patterns(snapshot)
     return ctx
 
 
+def _visible(findings: list[dict], kind: str) -> list[dict]:
+    """A kind's findings that pass support, strongest first (FR-CONF-1)."""
+    shown = [f for f in findings if f["kind"] == kind and "below_support" not in f["flags"]]
+    return sorted(shown, key=lambda f: (-f["support"]["k"], f["id"]))
+
+
+def _weaker(findings: list[dict], prefix: str) -> list[dict]:
+    weak = [f for f in findings if f["kind"].startswith(prefix) and "below_support" in f["flags"]]
+    return sorted(weak, key=lambda f: (-f["support"]["k"], f["id"]))
+
+
+def _pattern_context(snapshot: dict, tab: str) -> dict:
+    f = snapshot["findings"]
+    nicks = {m["player_key"]: m["nick"] for m in snapshot["roster"]}
+    if tab == "t":
+        tempo = next((x for x in f if x["kind"] == "ts.tempo"), None)
+        return {"nicks": nicks, "sites": _visible(f, "ts.site"), "tempos": _visible(f, "ts.tempo"),
+                "tempo_fig": tempo_figure(tempo["params"]["hit_times_s"]) if tempo else None,
+                "strategies": _visible(f, "ts.strategy"), "setups": _visible(f, "ts.setup"),
+                "buy_rounds": _visible(f, "ts.buy"), "postplants": _visible(f, "ts.postplant"),
+                "fakes": _visible(f, "ts.fake"), "weaker": _weaker(f, "ts.")}  # fmt: skip
+    if tab == "ct":
+        return {"nicks": nicks, "stacks": _visible(f, "ct.stack"),
+                "setups": _visible(f, "ct.setup"),
+                "positions": _visible(f, "ct.position"), "rotations": _visible(f, "ct.rotation"),
+                "duels": _visible(f, "ct.aggression"), "retakes": _visible(f, "ct.retake"),
+                "saves": _visible(f, "ct.save"), "weaker": _weaker(f, "ct.")}  # fmt: skip
+    lineups = _visible(f, "util.lineup")
+    radar = snapshot.get("radar")
+    url = f"/radar/{radar['map']}.png" if radar else None
+    sides = []
+    for side in ("T", "CT"):
+        mine = [x for x in lineups if x["params"]["side"] == side]
+        top = mine[:LINEUPS_ON_MAP]
+        sides.append({"side": side, "top": top, "more": mine[LINEUPS_ON_MAP:],
+                      "figure": lineups_figure(top, radar, url) if top else None})  # fmt: skip
+    return {"nicks": nicks, "lineup_sides": sides, "weaker": _weaker(f, "util.lineup")}
+
+
+def _player_patterns(snapshot: dict) -> dict:
+    f = snapshot["findings"]
+    by_player: dict[str, dict[str, list[dict]]] = {}
+    for kind in ("plr.habit", "plr.weapon", "plr.clutch"):
+        for x in _visible(f, kind):
+            by_player.setdefault(x["subject"], {}).setdefault(kind, []).append(x)
+    roles = {x["subject"]: x for x in f if x["kind"] == "plr.role"}
+    return {"roles": roles, "habits": by_player}
+
+
 BUY_INDEX = {b: i for i, b in enumerate(("all", *BUYS))}
+LINEUPS_ON_MAP = 10
 
 
 def _heat_choices(snapshot: dict, subject: str) -> dict:
@@ -347,3 +402,15 @@ async def ui_delete(entry_id: int, request: Request) -> Response:
     except ApiError as exc:
         return _error(request, exc.message)
     return _redirect("/")
+
+
+@router.post("/ui/entries/{entry_id}/labels/{finding_id}", response_class=HTMLResponse)
+async def ui_label(entry_id: int, finding_id: str, request: Request) -> HTMLResponse:
+    text = str((await request.form()).get("label", ""))[:80]
+    try:
+        saved = api.put_label(entry_id, finding_id, api.Label(label=text), request)
+    except ApiError as exc:
+        return _error(request, exc.message)
+    response = _page(request, "_label_saved.html", label=saved["label"])
+    response.headers["HX-Trigger"] = "labels-changed"  # the open tab reloads with the name
+    return response

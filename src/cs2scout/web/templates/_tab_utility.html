@@ -1,0 +1,33 @@
+{% import "_macros.html" as m %}
+{% set eid = entry.id %}
+{% macro lineup_rows(items, numbered) -%}
+<table>
+  <thead><tr><th class="num">#</th><th>Lineup</th><th>When</th><th>Thrown by</th><th>Rounds</th><th>Last seen</th></tr></thead>
+  <tbody>
+  {% for f in items %}
+    <tr><td class="num">{{ loop.index if numbered else "" }}</td><td>{{ m.named(eid, f) }}</td>
+      <td>{{ m.clock(f.params.median_s) }}</td>
+      <td>{% for t in f.params.throwers %}{{ nicks.get(t.player, t.player) }} ({{ t.throws }}){% if not loop.last %}, {% endif %}{% endfor %}</td>
+      <td>{{ m.support(eid, f, f.label or f.title) }}</td><td>{{ m.recency(f) }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{%- endmacro %}
+
+<p class="muted">Throws that start and land in the same spots across rounds. On the map, a small circle is
+  where it is thrown and a cross is where it lands; the numbers match the table.</p>
+{% for s in lineup_sides %}
+<h2><span class="side-{{ s.side }}">{{ s.side }}</span> lineups</h2>
+{% if s.top %}
+<div class="card">{{ m.figure("fig-lineups-" ~ s.side, s.figure) }}
+  {% if not snapshot.radar %}<p class="muted">Map image not installed: lineups are drawn without the map.</p>{% endif %}</div>
+<div class="card table-wrap">{{ lineup_rows(s.top, true) }}</div>
+{% if s.more %}
+<details class="card"><summary>{{ s.more | length }} more {{ s.side }} lineups</summary>
+  <div class="table-wrap">{{ lineup_rows(s.more, false) }}</div></details>
+{% endif %}
+{% else %}
+<p class="muted">No {{ s.side }} lineup recurs often enough yet.</p>
+{% endif %}
+{% endfor %}
+{{ m.weaker(eid, weaker) }}

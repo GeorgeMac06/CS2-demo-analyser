@@ -230,6 +230,32 @@ class Library:
         )
         return rows[0] if rows else None
 
+    # ------------------------------------------------------------------ labels (FR-TS-3)
+
+    def labels(self, entry_id: int) -> dict[tuple[str, str], str]:
+        rows = self._query(
+            "SELECT pattern_kind, stable_key, user_label FROM label WHERE entry_id = ?",
+            (entry_id,),
+        )
+        return {(r["pattern_kind"], r["stable_key"]): r["user_label"] for r in rows}
+
+    def set_label(self, entry_id: int, kind: str, key: str, label: str | None) -> None:
+        with self.transaction() as db:
+            db.execute(
+                "DELETE FROM label WHERE entry_id = ? AND pattern_kind = ? AND stable_key = ?",
+                (entry_id, kind, key),
+            )
+            if label:
+                db.execute("INSERT INTO label VALUES (?, ?, ?, ?)", (entry_id, kind, key, label))
+
+    def rekey_label(self, entry_id: int, kind: str, old_key: str, new_key: str) -> None:
+        with self.transaction() as db:
+            db.execute(
+                "UPDATE OR IGNORE label SET stable_key = ?"
+                " WHERE entry_id = ? AND pattern_kind = ? AND stable_key = ?",
+                (new_key, entry_id, kind, old_key),
+            )
+
     def set_played_at(self, sha256: str, played_at: str) -> None:
         """The Analyst's correction of a match date (demos carry none; FR-CONF-4)."""
         with self.transaction() as db:

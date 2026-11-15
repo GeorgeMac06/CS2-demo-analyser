@@ -63,4 +63,7 @@ td.num, th.num { text-align: right; }
 .chart { min-height: 120px; }
 .dropzone { border: 2px dashed var(--line); border-radius: 10px; padding: 18px; text-align: center; }
 details > summary { cursor: pointer; }
+details.rename { display: inline-block; margin-left: 6px; }
+details.rename > summary { list-style: none; color: var(--muted); }
+details.rename[open] > summary { color: var(--accent); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

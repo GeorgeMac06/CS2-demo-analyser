@@ -22,6 +22,7 @@ from cs2scout.core.errors import ErrorCode
 from cs2scout.core.features import assign_rounds, player_rounds
 from cs2scout.core.findings import SCHEMA_VERSION, all_findings, round_index_json
 from cs2scout.core.grids import POSITION_COLUMNS, build_grids, live_positions, project
+from cs2scout.core.labels import carry_over
 from cs2scout.core.maps import Radar
 from cs2scout.core.patterns_ct import ct_rounds, mine_ct, player_ct_summary
 from cs2scout.core.patterns_t import mine_t, t_rounds
@@ -139,12 +140,19 @@ def roster_proposal(demos: list[LoadedDemo]) -> dict:
 # ---------------------------------------------------------------- recompute
 
 
+def player_key(steamid: int) -> str:
+    """A stable pseudonym per player: unchanged by roster edits, so labels and per-player
+    patterns never jump to another player. Exports carry this and the nickname, never the
+    SteamID (I-3)."""
+    return "p" + hashlib.sha256(str(steamid).encode()).hexdigest()[:6]
+
+
 def roster_keys(roster_rows) -> list[dict]:
-    """Stable local player keys (p1, p2, ...): core first, then stand-ins, by SteamID."""
+    """Active roster (core first, then stand-ins), each with its stable player key."""
     active = sorted((r for r in roster_rows if r["role"] in ROLE_ORDER),
                     key=lambda r: (ROLE_ORDER[r["role"]], r["steamid"]))  # fmt: skip
-    return [{"player_key": f"p{i}", "steamid": r["steamid"], "nick": r["last_nick"],
-             "role": r["role"]} for i, r in enumerate(active, start=1)]  # fmt: skip
+    return [{"player_key": player_key(r["steamid"]), "steamid": r["steamid"],
+             "nick": r["last_nick"], "role": r["role"]} for r in active]  # fmt: skip
 
 
 def run_recompute(ctx: JobContext, entry_id: int, adapter: str,
@@ -165,6 +173,7 @@ def run_recompute(ctx: JobContext, entry_id: int, adapter: str,
     ctx.check_cancel()
     scouted = assign_lineups([d.lineups for d in demos], core, overrides)
     input_hash = _input_hash(demos, overrides, roster_rows, adapter_identity(adapter), cfg)
+    previous = _patterns(lib.current_version_dir(entry_id))
     n, vdir = lib.begin_version(entry_id, cfg.digest(), input_hash)
     try:
         info = radar_info(lib.home, entry.map)  # None: no assets -> stats-only visuals
@@ -184,6 +193,10 @@ def run_recompute(ctx: JobContext, entry_id: int, adapter: str,
         (vdir / "players.json").write_text(json.dumps(roster), encoding="utf-8")
         (vdir / "findings.json").write_text(json.dumps(snapshot, indent=1, sort_keys=True),
                                             encoding="utf-8")  # fmt: skip
+        # User labels follow their patterns when new demos reshape them (T-11).
+        moves = carry_over(lib.labels(entry_id), previous, _patterns(vdir))
+        for (kind, old_key), new_key in moves.items():
+            lib.rekey_label(entry_id, kind, old_key, new_key)
         lib.commit_version(entry_id, n)
     except BaseException:
         lib.abandon_version(entry_id, n)
@@ -191,6 +204,11 @@ def run_recompute(ctx: JobContext, entry_id: int, adapter: str,
     return {"entry_id": entry_id, "version": n,
             "demos_used": sum(1 for d in snapshot["demos"] if d["used"]),
             "problems": problems}  # fmt: skip
+
+
+def _patterns(version_dir: Path | None) -> list[dict]:
+    path = version_dir / "patterns.json" if version_dir else None
+    return json.loads(path.read_text(encoding="utf-8")) if path and path.exists() else []
 
 
 def _input_hash(demos, overrides, roster_rows, parser, cfg) -> str:

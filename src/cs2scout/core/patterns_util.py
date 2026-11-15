@@ -140,15 +140,16 @@ def mine_util(demos: list[DemoUtil], ct_positions: dict[int, dict], ct_rotation:
                 continue
             land_place = Counter(t["land_place"] for t in cluster).most_common(1)[0][0]
             throw_place = Counter(t["throw_place"] for t in cluster).most_common(1)[0][0]
-            lx = statistics.median(t["land"][0] for t in cluster)
-            ly = statistics.median(t["land"][1] for t in cluster)
+            lx, ly = _mid(cluster, "land")
+            tx, ty = _mid(cluster, "throw")
             when = median(t["s"] for t in cluster)
             throwers = Counter(keys.get(t["thrower"], "?") for t in cluster)
             out.append(pattern("util.lineup", (side, kind, round(lx / 100), round(ly / 100)),
                                "team", f"{kind.capitalize()} into {land_place} from {throw_place}"
                                f" ~{clock(when)}", {
                 "type": kind, "side": side, "land_place": land_place, "throw_place": throw_place,
-                "land": [round(lx), round(ly)], "median_s": when, "throws": len(cluster),
+                "land": [round(lx), round(ly)], "throw": [round(tx), round(ty)],
+                "median_s": when, "throws": len(cluster),
                 "throwers": [{"player": k, "throws": n} for k, n in throwers.most_common()],
             }, {"side": side}, refs))  # fmt: skip
 

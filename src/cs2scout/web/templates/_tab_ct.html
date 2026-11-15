@@ -1,0 +1,67 @@
+{% import "_macros.html" as m %}
+{% set eid = entry.id %}
+
+<h2>Setups at 0:20</h2>
+{{ m.pattern_table(eid, stacks, "Stack") }}
+{{ m.pattern_table(eid, setups, "Setup (A / B / mid)") }}
+
+<h2>Where each player stands</h2>
+{% if positions %}
+<div class="card table-wrap">
+  <table>
+    <caption class="sr-only">Each player's usual CT position at 0:20</caption>
+    <thead><tr><th>Player</th><th>Most often</th><th class="num">Share</th><th>Rounds</th><th>Also</th></tr></thead>
+    <tbody>
+    {% for f in positions %}
+      <tr><td>{{ nicks.get(f.subject, f.subject) }}</td><td>{{ f.params.main }}</td>
+        <td class="num">{{ f.params.share_pct }}%</td><td>{{ m.support(eid, f, nicks.get(f.subject) ~ " at " ~ f.params.main) }}</td>
+        <td class="muted">{% for p in f.params.positions[1:] %}{{ p.place }} ({{ p.rounds }}){% if not loop.last %}, {% endif %}{% endfor %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<div class="grid2">
+  <div>
+    <h2>Rotations</h2>
+    {% if rotations %}
+    <div class="card table-wrap">
+      <table>
+        <caption class="sr-only">Who rotates to a site under attack, and how fast</caption>
+        <thead><tr><th>Player</th><th class="num">Median time</th><th>Rotated</th><th class="num">Of contacts away</th></tr></thead>
+        <tbody>
+        {% for f in rotations %}
+          <tr><td>{{ nicks.get(f.subject, f.subject) }}</td><td class="num">{{ f.params.median_s }} s</td>
+            <td>{{ m.support(eid, f, nicks.get(f.subject) ~ " rotations") }}</td>
+            <td class="num">{{ f.params.rotated }}/{{ f.params.considered }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}<p class="muted">Not enough rotations to show.</p>{% endif %}
+  </div>
+  <div>
+    <h2>Early duels (before 0:20)</h2>
+    {% if duels %}
+    <div class="card table-wrap">
+      <table>
+        <caption class="sr-only">Early fights taken on CT</caption>
+        <thead><tr><th>Player</th><th>Rounds</th><th class="num">Won</th><th>Where</th></tr></thead>
+        <tbody>
+        {% for f in duels %}
+          <tr><td>{{ nicks.get(f.subject, f.subject) }}</td><td>{{ m.support(eid, f, nicks.get(f.subject) ~ " early duels") }}</td>
+            <td class="num">{{ f.params.won }}/{{ f.params.duels }}</td>
+            <td class="muted">{% for p in f.params.places %}{{ p.place }} ({{ p.duels }}){% if not loop.last %}, {% endif %}{% endfor %}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}<p class="muted">No player takes early duels often enough to show.</p>{% endif %}
+  </div>
+</div>
+
+<h2>After an enemy plant</h2>
+{{ m.pattern_table(eid, retakes + saves, "Reaction") }}
+
+{{ m.weaker(eid, weaker) }}

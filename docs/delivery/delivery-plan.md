@@ -33,7 +33,13 @@
 <br>• WU-12: grenade lineups, opening-duel habits, weapon per buy, clutches, suggested roles shown with their metrics.
 <br>• Patterns are mined once per version (`patterns.json`, stable keys) and recounted for every filter.
 <br>• Tuned on the 4 real demos. Bugs fixed: round windows built per side (the last T round absorbed second-half plants); weapons looked up at the wrong tick. Retakes now also count a team death on the planted site's approach. Strategies and setups are compared by side of the map. BackAlley and House were mapped to B from evidence. **Q2 changed to 10% + 2 demos** (see requirements Q2).
-<br>**Next:** WU-13 (pattern identity, labels and pattern UI → M2), then WU-14 (export). P-6 (radar image licence) is still open before any export is shared.|
+<br>**WU-13 done → M2 reached in tests** (2026-11-15).
+<br>• Labels: rename any pattern or override a suggested role (✎). Labels live in the library and are overlaid at view time. When new demos reshape a pattern, its label moves to the best-overlapping new pattern (Jaccard ≥ 0.5). Labels that match nothing are kept, unshown.
+<br>• Player keys are now stable pseudonyms per SteamID, so roster edits never move labels or patterns to another player.
+<br>• New tabs: T side (site and tempo with a histogram, strategies, setups, buy rounds, post-plants, fakes), CT side (stacks, setups, positions, rotations, early duels, retakes and saves), Utility (T and CT lineups on the radar). Players gains suggested roles with their evidence, plus habits. Weaker signals stay folded away.
+<br>• Bug fixed: SQLite reuses a deleted entry's id, so the filtered-findings cache could show a new entry the deleted entry's results. The cache now keys on the findings file's identity.
+<br>**M2 owner review (G-manual) is open:** judge the top patterns per tab on your own demos as plausible / wrong / unclear.
+<br>**Next after M2:** WU-14 (export), WU-15 (AI brief), WU-16 (settings, docs, final journey). P-6 (radar image licence) is still open before any export is shared.|
 | Outcome | The owner can import N demos of one team on one map. They can explore team and player patterns with support counts, and export a brief for teammates. The AI summary is optional. |
 
 **What this plan covers:**

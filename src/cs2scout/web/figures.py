@@ -82,3 +82,62 @@ def heatmap_figure(meta: dict, cells: pl.DataFrame, radar_url: str | None) -> di
             "sizex": x1 - x0, "sizey": y1 - y0, "sizing": "stretch", "layer": "below",
         }]  # fmt: skip
     return {"data": [trace], "layout": layout}
+
+
+TYPE_COLOURS = {"smoke": "#FFFFFF", "flash": "#F0E442", "molotov": "#D55E00", "HE": "#009E73"}
+
+
+def tempo_figure(hit_times: list[float]) -> dict:
+    """When T hits land: one bar per 5 seconds, with the rush/default/late bands marked."""
+    trace = {"type": "histogram", "x": hit_times, "xbins": {"start": 0, "size": 5},
+             "marker": {"color": SIDE_COLOURS["T"]},
+             "hovertemplate": "%{x}s: %{y} rounds<extra></extra>"}  # fmt: skip
+    dotted = {"dash": "dot", "color": "rgba(128,128,128,0.7)"}
+    bands = [{"type": "line", "x0": s, "x1": s, "y0": 0, "y1": 1, "yref": "paper",
+              "line": dotted} for s in (20, 60)]  # fmt: skip
+    grid = "rgba(128,128,128,0.25)"
+    layout = _base_layout(height=240, showlegend=False, shapes=bands,
+                          xaxis={"title": "seconds after freeze time"},
+                          yaxis={"title": "rounds", "gridcolor": grid})  # fmt: skip
+    return {"data": [trace], "layout": layout}
+
+
+def lineups_figure(lineups: list[dict], radar: dict | None, radar_url: str | None) -> dict:
+    """Each lineup as a line from where it is thrown to where it lands, on the radar."""
+
+    def to_px(xy: list[float]) -> tuple[float, float]:
+        if not radar:
+            return xy[0], xy[1]
+        return (xy[0] - radar["pos_x"]) / radar["scale"], (radar["pos_y"] - xy[1]) / radar["scale"]
+
+    data = []
+    for i, f in enumerate(lineups, start=1):
+        p = f["params"]
+        (tx, ty), (lx, ly) = to_px(p["throw"]), to_px(p["land"])
+        colour = TYPE_COLOURS.get(p["type"], "#56B4E9")
+        name = f"{i}. {f.get('label') or f['title']}"
+        data.append({"type": "scatter", "mode": "lines+markers", "x": [tx, lx], "y": [ty, ly],
+                     "name": name, "line": {"color": colour, "width": 2},
+                     "marker": {"size": [5, 12], "color": colour, "symbol": ["circle", "x"]},
+                     "hovertemplate": name + "<extra></extra>"})  # fmt: skip
+        data.append({"type": "scatter", "mode": "text", "x": [lx], "y": [ly], "text": [str(i)],
+                     "textposition": "top center", "showlegend": False, "hoverinfo": "skip",
+                     "textfont": {"color": colour, "size": 13}})  # fmt: skip
+    hidden = {"visible": False, "constrain": "domain"}
+    if radar:
+        w, h = radar["width"], radar["height"]
+        xaxis, yaxis = {**hidden, "range": [0, w]}, {**hidden, "range": [h, 0], "scaleanchor": "x"}
+    else:
+        xaxis, yaxis = {**hidden}, {**hidden, "scaleanchor": "x"}
+    layout = _base_layout(
+        height=720,
+        margin={"l": 0, "r": 0, "t": 0, "b": 0},
+        xaxis=xaxis,
+        yaxis=yaxis,
+        showlegend=False,
+    )  # numbers on the map match the table
+    if radar and radar_url:
+        layout["images"] = [{"source": radar_url, "xref": "x", "yref": "y", "x": 0, "y": 0,
+                             "sizex": radar["width"], "sizey": radar["height"],
+                             "sizing": "stretch", "layer": "below"}]  # fmt: skip
+    return {"data": data, "layout": layout}

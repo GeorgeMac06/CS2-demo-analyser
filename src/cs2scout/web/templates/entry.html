@@ -46,9 +46,11 @@
 </form>
 
 <nav class="tabs" aria-label="Sections">
-  {% for t, label in [("overview", "Overview"), ("players", "Players"), ("demos", "Demos")] %}
+  {% for t, label in [("overview", "Overview"), ("t", "T side"), ("ct", "CT side"), ("utility", "Utility"), ("players", "Players"), ("demos", "Demos")] %}
   <a href="/entries/{{ entry.id }}?tab={{ t }}" {% if t == tab %}aria-current="page"{% endif %}>{{ label }}</a>
   {% endfor %}
 </nav>
-<section id="tab">{% include tab_template %}</section>
+{# hx-disinherit: forms inside the tab (heatmap picker, rename) must not inherit hx-include. #}
+<section id="tab" hx-get="/ui/entries/{{ entry.id }}/tab/{{ tab }}" hx-include="#filters"
+         hx-trigger="labels-changed from:body" hx-disinherit="*">{% include tab_template %}</section>
 {% endblock %}
