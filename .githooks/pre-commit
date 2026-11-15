@@ -1,0 +1,12 @@
+#!/bin/sh
+# G-fast gate (docs/delivery/test-strategy.md §3). Enable once per clone:
+#   git config core.hooksPath .githooks
+set -e
+if ! command -v uv >/dev/null 2>&1; then
+    echo "pre-commit: uv not found on PATH (open a new terminal after installing uv)" >&2
+    exit 1
+fi
+uv run ruff format --check .
+uv run ruff check .
+uv run lint-imports
+uv run pytest -q

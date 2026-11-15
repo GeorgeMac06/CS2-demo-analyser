@@ -1,0 +1,73 @@
+[project]
+name = "cs2scout"
+version = "0.1.0"
+description = "Multi-demo, single-map CS2 team scouting for league play."
+readme = "README.md"
+authors = [
+    { name = "GMac06", email = "82325049+GeorgeMac06@users.noreply.github.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.163.1",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+cs2scout = "cs2scout.__main__:main"
+
+[build-system]
+requires = ["uv_build>=0.13.8,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16.0",
+    "import-linter>=2.16",
+    "psutil>=7.2.2",
+    "pytest>=9.2.0",
+    "ruff>=0.17.5",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S603"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# G-fast by default. G-demos: `pytest -m demos --require-demos`. G-browser: `pytest -m browser`.
+addopts = "-m 'not demos and not browser'"
+markers = [
+    "demos: needs real demos in tests/local_fixtures/demos (gate G-demos)",
+    "browser: needs Playwright Chromium (gate G-browser)",
+]
+
+# T-19 / AT-11: module boundaries from target design §4.
+[tool.importlinter]
+root_package = "cs2scout"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "core is pure: no other cs2scout packages, parser, frameworks or storage"
+type = "forbidden"
+source_modules = ["cs2scout.core"]
+forbidden_modules = [
+    "cs2scout.parser", "cs2scout.ingest", "cs2scout.store", "cs2scout.jobs",
+    "cs2scout.web", "cs2scout.export", "cs2scout.ai", "cs2scout.settings",
+    "awpy", "demoparser2", "fastapi", "starlette", "uvicorn", "anthropic", "sqlite3",
+]
+
+[[tool.importlinter.contracts]]
+name = "only cs2scout.parser imports a demo parser library"
+type = "forbidden"
+source_modules = [
+    "cs2scout.core", "cs2scout.ingest", "cs2scout.store", "cs2scout.jobs",
+    "cs2scout.web", "cs2scout.export", "cs2scout.ai", "cs2scout.settings", "cs2scout.__main__",
+]
+forbidden_modules = ["awpy", "demoparser2"]

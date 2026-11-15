@@ -1,0 +1,11 @@
+*.dem
+*.dem.bz2
+__pycache__/
+.venv/
+.env
+cache/
+out/
+tests/local_fixtures/
+*.dem.gz
+*.dem.zst
+*.zip
