@@ -1,7 +1,8 @@
 """Loopback guard (target design §8).
 
 Blocks DNS rebinding (Host check), cross-site requests (Origin check on unsafe methods)
-and any other local page driving the API (per-launch token on /api/*).
+and any other local page driving the app (per-launch token on /api/* and on every
+state-changing request; pages receive it in a meta tag and htmx sends it as a header).
 """
 
 from __future__ import annotations
@@ -11,6 +12,8 @@ import hmac
 from starlette.datastructures import Headers
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
+
+from cs2scout.core.errors import ErrorCode
 
 TOKEN_HEADER = "x-cs2scout"  # noqa: S105 - a header name, not a secret
 UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
@@ -36,7 +39,9 @@ class LocalGuard:
 
         reason = self._rejection(scope)
         if reason is not None:
-            response = JSONResponse({"code": "FORBIDDEN", "message": reason}, status_code=403)
+            response = JSONResponse(
+                {"code": ErrorCode.FORBIDDEN, "message": reason}, status_code=403
+            )
             await response(scope, receive, send)
             return
         await self.app(scope, receive, send)
@@ -48,7 +53,8 @@ class LocalGuard:
         if scope["method"] in UNSAFE_METHODS and headers.get("origin") not in self.allowed_origins:
             return "Origin not allowed"
         path = scope["path"]
-        if path.startswith("/api/") and path not in TOKEN_EXEMPT_PATHS:
+        needs_token = path.startswith("/api/") or scope["method"] in UNSAFE_METHODS
+        if needs_token and path not in TOKEN_EXEMPT_PATHS:
             if not hmac.compare_digest(headers.get(TOKEN_HEADER, ""), self.token):
                 return "Missing or invalid session token"
         return None

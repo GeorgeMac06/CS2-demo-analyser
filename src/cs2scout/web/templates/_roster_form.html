@@ -1,0 +1,65 @@
+{% set r = result %}
+<div class="card">
+  <h2>Imported {{ r.accepted | length }} demo{{ "s" if r.accepted | length != 1 }} on {{ r.map }}</h2>
+  {% include "_file_table.html" %}
+</div>
+<form class="card" hx-post="/ui/entries" hx-target="#step" hx-swap="innerHTML">
+  <input type="hidden" name="job_id" value="{{ job.job_id }}">
+  <h2>Confirm the team you are scouting</h2>
+  {% if proposal.needs_pick %}
+    <p><strong>Pick the team.</strong> <span class="muted">With this few demos (or two teams that met twice) the app cannot tell which team you are scouting. Mark its players as core below.</span></p>
+  {% else %}
+    <p class="muted">Proposed from players who keep appearing together. Change any role you disagree with.</p>
+  {% endif %}
+  <div class="row">
+    <label>Team name <input name="team_name" value="{{ proposal.team_name or '' }}" required></label>
+    {% if teams %}
+    <label>or add to an existing team
+      <select name="team_id"><option value="">— new team —</option>
+        {% for t in teams %}<option value="{{ t.team_id }}">{{ t.display_name }}</option>{% endfor %}
+      </select></label>
+    {% endif %}
+  </div>
+  {% set team = proposal.players | selectattr("role") | list %}
+  {% set others = proposal.players | rejectattr("role") | list %}
+  {% macro rows(players, total) %}
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Player</th><th class="num">In demos</th><th>Role</th></tr></thead>
+    <tbody>
+    {% for p in players %}
+      <tr>
+        <td>{{ p.nick or p.steamid }}</td>
+        <td class="num">{{ p.presence }}/{{ total }}</td>
+        <td><select name="role_{{ p.steamid }}" aria-label="Role of {{ p.nick or p.steamid }}">
+          <option value="" {% if not p.role %}selected{% endif %}>not in team</option>
+          <option value="core" {% if p.role == "core" %}selected{% endif %}>core</option>
+          <option value="standin" {% if p.role == "standin" %}selected{% endif %}>stand-in</option>
+          <option value="excluded">in team, leave out of stats</option>
+        </select></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endmacro %}
+  {% if team %}<h3>Proposed team</h3>{{ rows(team, r.accepted | length) }}{% endif %}
+  <details {% if not team %}open{% endif %}>
+    <summary>Other players ({{ others | length }}, mostly opponents)</summary>
+    {{ rows(others, r.accepted | length) }}
+  </details>
+  {% if demos %}
+  <details {% if proposal.needs_pick %}open{% endif %}>
+    <summary>Which side was the team in each demo? (normally automatic)</summary>
+    {% for d in demos %}
+      <p><label>{{ d.label }} · {{ d.played_at[:10] if d.played_at }} · {{ d.score }}
+        <select name="lineup_{{ d.sha256 }}">
+          <option value="">automatic</option>
+          <option value="A">{{ d.lineup_nicks.A | join(", ") }}</option>
+          <option value="B">{{ d.lineup_nicks.B | join(", ") }}</option>
+        </select></label></p>
+    {% endfor %}
+  </details>
+  {% endif %}
+  <p><button type="submit">Create analysis</button></p>
+</form>

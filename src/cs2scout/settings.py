@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+
+from cs2scout.ingest.files import Limits
+from cs2scout.jobs.extract_worker import DEFAULT_ADAPTER, DEFAULT_TIMEOUT_S
 
 # Fixed by design (C-1, DRV-5): the server is never reachable from the network.
 LOOPBACK_HOST = "127.0.0.1"
@@ -16,6 +19,11 @@ DEFAULT_PORT = 8765
 class Settings:
     home: Path
     port: int
+    # Not read from the environment: tests inject a synthetic parser and smaller limits.
+    adapter: str = DEFAULT_ADAPTER
+    retain_sources: bool = True
+    archive_limits: Limits = field(default_factory=Limits)
+    parse_timeout_s: float = DEFAULT_TIMEOUT_S
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str] = os.environ) -> Settings:

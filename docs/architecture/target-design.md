@@ -88,13 +88,13 @@ Variables:
 |---|---|---|---|
 | Rounds per entry | D × R | 39 – 1,500 | Clustering stays O(n²): at most 2.25 M pair distances. Trivial at this size. |
 | Snapshot rows per demo | 4 Hz × 60 × T × 10 players | 72 k – 144 k | Defines extract size. A stride of 8 doubles it, which is still fine. |
-| Extract size per demo (all tables) | rows × ~30–60 B compressed + events | 5 – 15 MB | — |
+| Extract size per demo (all tables) | rows × ~30–60 B compressed + events | 5 – 15 MB. **Measured in S-1: 1.6–2.9 MB.** | — |
 | Extract size per entry | D × above | 15 MB – 750 MB | — |
-| Retained source copy per demo | 50–300 MB × zstd ratio 0.3–0.5 [A] | 15 – 150 MB | **First bottleneck: disk.** Demos are deduplicated across entries by sha256. |
+| Retained source copy per demo | 208–361 MB × gzip ratio 0.72 [F, measured 2026-11-15 on a 50 MB sample; zstd is not in the Python 3.13 standard library] | 150 – 260 MB | **First bottleneck: disk.** Demos are deduplicated across entries by sha256. |
 | Library worst case | 20 entries × 50 demos × 150 MB | ≤ 150 GB | 597 GB free [F, ENV-3]. Show workspace usage. The cap can be configured (§7). |
 | Findings Snapshot | ~50 heatmap grids × 64×64 cells + patterns | ~1–3 MB JSON | — |
 | Exported HTML | Plotly.js (~4.6 MB) + radar PNG (~1–2 MB as base64) + data | ~7–12 MB | Fine to share via Discord or Drive. If too big, use the partial Plotly bundle. |
-| Parse memory | one awpy parse | **UNKNOWN** | Measure in spike S-1. Sequential parsing keeps the peak at one parse. 32 GB of RAM is available [F]. |
+| Parse memory | one awpy parse | **Measured in S-1: 0.5–0.8 GB** on the production path. 5.4–9.1 GB if `ticks(players_only=False)` is used, so that call is banned in production (ADR-002). | Sequential parsing keeps the peak at one parse. 32 GB of RAM is available [F]. |
 | Request rate | 1 user | negligible | No caching layer or queue infrastructure is needed. |
 
 **Deferred on purpose:**
@@ -121,9 +121,10 @@ cs2scout/
     findings.py    # Findings Snapshot schema, assembly, filter recount (FR-CONF-*)
     config.py      # AnalysisConfig (Q1–Q3 thresholds), hashed into snapshot
   parser/          # port + awpy adapter; only place that imports awpy
-  ingest/          # file discovery, archive handling, hashing, header validation
+  ingest/          # file discovery, bounded archive handling, hashing, magic bytes, retention
   store/           # workspace layout, SQLite repositories, Parquet IO, atomic swaps
-  jobs/            # job runner, child-process parse, progress, cancellation
+  jobs/            # job runner, child-process parse/probe, import_job (J1/J2 orchestration),
+                   # analysis (team resolution, recompute S3-S6, version swap)
   web/             # FastAPI app, routes, templates, Plotly figure builders, security middleware
   export/          # static render + inliner
   ai/              # payload builder, Anthropic client wrapper, grounding validator
@@ -147,7 +148,7 @@ The root is `%LOCALAPPDATA%\CS2DemoScout\`. The setting `CS2SCOUT_HOME` override
 
 ```
 library.sqlite                   # metadata, overrides, entry versions, AI briefs
-demos/<sha256>/source.dem.zst    # retained source copy (setting; default ON, see ADR-003)
+demos/<sha256>/source.dem.gz     # retained source copy, gzip level 6 (setting; default ON, ADR-003)
 extracts/<sha256>/<parser>@<ver>+s<schema>/*.parquet
 entries/<entry_id>/v<n>/findings.json, grids.parquet, features.parquet
 assets/awpy-data/<version>/      # AWPY_DATA_DIR, pinned
@@ -190,9 +191,11 @@ logs/app.log                     # rotating
 | `grenades` | entity id+serial, thrower steamid+side, type, start_tick, end_tick, throw xyz, land xyz (derived: first and last points of the trajectory) | `demo.grenades` |
 | `smokes`, `fires` | start/end tick, xyz, thrower | dataset intervals |
 | `blinds` | tick, attacker, victim, duration | `demo.blinds` |
-| `snapshots` | tick, steamid, side, x,y,z, yaw, health, active_weapon, place? | `demo.snapshots(every=16)`. `place` comes from `ticks()` raw field `m_szLastPlaceName` [OPEN: UNVERIFIED, spike S-1]. |
+| `snapshots` | tick, steamid, side, x,y,z, yaw, health, active_weapon, place | `demo.snapshots(every=16)`. `place` comes from the `ticks()` raw field `m_szLastPlaceName`, joined on (tick, steamid) [F, S-1: never empty]. |
+| `server_counters` | steamid, kills, deaths, assists, damage (last value per player) | `ticks()` raw fields `m_pActionTrackingServices.m_matchStats.m_iKills/m_iDeaths/m_iAssists/m_iDamage` [F, S-1]. Read in the same `ticks()` call as `place`. Used for the import sanity check (§6.1 step 6) and T-01. |
 
 **Rules:**
+- `src/cs2scout/core/schema.py` is the authority for exact columns, dtypes and row order. The table above is a summary. As built, `grenades` stores one row per trajectory (throw point, landing point, `land_tick`), and the extract holds parser facts only: no derived flags such as overtime or warmup.
 - Columns that cannot be filled are nulls, never guesses.
 - The adapter records a `warnings` list, e.g. `place unavailable` or `grenade owner unresolved: 3`.
 - Buy class is **computed by `core.rounds`** from `equipment_value` with configurable thresholds (FR-RND-1, Q1). awpy's fixed `buy_type` is kept for cross-checking only.
@@ -257,6 +260,7 @@ logs/app.log                     # rotating
 - These live under `assets/awpy-data/<version>`, with `AWPY_DATA_DIR` set to that directory [F, awpy docs].
 - awpy downloads missing assets automatically on first access [F]. The app must not trigger that at runtime (DRV-5). Instead, assets are installed by an explicit `cs2scout assets fetch` command, which downloads the pinned version and verifies it against the checksums in `manifest.json`. At runtime, map accessors are called with `version=` and the assets must already be on disk. Missing assets give the "stats only" fallback, never a download.
 - A map with no assets falls back to "stats only" (DEP-2).
+- **As built (WU-8):** pinned release `2000943`, verified against SHA-256 pinned in `store/assets.py`. Only `images.zip` and `map_data.json` are fetched; the collision and nav meshes (~65 MB) are not needed. The transform is `px = (x - pos_x) / scale`, `py = (pos_y - y) / scale` on 1024×1024 radars. Positions below `verticalsections.lower.AltitudeMax` use the `_lower` radar. Grids carry `space: radar|world`.
 - `ZoneProvider` port: `zone_of(x, y, z) -> zone_id`, plus `zone_meta(zone_id) -> name, site, polygon?`.
   - **v1 `PlaceNameZones`:** uses the snapshot `place` value, plus a small per-map table that maps place names to sites and lanes. Example: `BombsiteB → site B`, `Banana → B lane`.
   - **Fallback if `place` is unavailable or too coarse (U-1/A2):** `PolygonZones`, using hand-authored callout polygons per map. Nav-area lookup through `awpy.NavMesh` is another option, if nav areas carry usable place data [OPEN].
@@ -319,21 +323,21 @@ The API is unversioned: there is a single client, the same release's templates. 
    - It writes Parquet files to `extracts/.../_partial/`, then renames the directory on success.
    - A timeout applies (configurable, default generous: 15 min; speed is not a goal).
    - A non-zero exit gives `PARSER_CRASH`. An exception gives `DEMO_UNREADABLE` with its message. The other demos continue (FR-IN-2, QS-2).
-6. **Sanity checks** on the extract:
-   - rounds ≥ 1,
-   - 10 distinct non-bot SteamIDs (A1),
-   - kill and grenade counts > 0,
-   - the scores and per-player K/D/A reconstructed from events match the server's scoreboard counters recorded in the demo;
-   - a winner exists under the MR12/overtime rule, otherwise the demo is flagged incomplete (FR-IN-5).
-   - A failure gives a warning on the demo, or a rejection if it is severe. Thresholds are listed in the test plan.
-7. **Retain the source** (ADR-003). Compress `tmp/*.dem` to `demos/<sha>/source.dem.zst`, then delete the temp file.
+6. **Sanity checks** on the extract. As built in WU-2, `core.schema.sanity_issues`:
+   - **Reject:** a required raw field came back all-null (`missing_fields`, ADR-002); no rounds; no players; no positions.
+   - **Warn:** not 10 players (A1); no kills; no grenades; no server counters; no place names for alive players.
+   - Per-player K/D/A against the server counters is checked in T-01 (G-demos), not on every import. It needs the counting rules from core (WU-7). WU-7 may add it as an import warning.
+   - Incomplete-match detection under the MR12/overtime rule (FR-IN-5) belongs to round logic in core (WU-6), not to the extract.
+   - An adapter that breaks the schema contract is a `PARSER_CRASH` (our bug), not a bad demo.
+7. **Retain the source** (ADR-003). Compress the demo to `demos/<sha>/source.dem.gz` (gzip: standard library, ratio 0.72 measured), then delete any temp copy.
 8. **Cancel.** The job sets a cancel flag. The runner kills the child process, deletes `_partial` and tmp files, and keeps completed extracts. The entry version is not created (J1 alternative).
 
 ### 6.2 Team resolution (FR-TEAM-1..5)
 
 - **Per demo:**
-  - Split the players into two **lineups**. A player's lineup is their side in the first regulation half, so lineups stay fixed across the half-time swap.
-  - Flip each lineup's side at every swap round, using awpy round sides and the MR12/overtime swap rule.
+  - Split the players into two **lineups**. A player's lineup is their side in round 1, so lineups stay fixed across side swaps.
+  - Take each lineup's side per round from **observed** `team_num` at freeze end, not from a swap rule. S-1 saw a swap at round 13. In overtime there was no swap at round 25 and a swap at round 28 (n=1). Lineups never split across sides in 4 demos.
+  - A round where a lineup's players are on different sides is flagged. This catches substitutions or a corrupted demo.
 - **Core roster:** count each SteamID's appearances across demos, then run a co-occurrence check. The core is the largest set of players with ≥ 50% demo presence who share a lineup in those demos. At most 5 are core; the rest are stand-ins.
 - **Scouted lineup per demo:** the lineup with ≥ 3 core players. If neither lineup qualifies, the demo is flagged `TEAM_NOT_FOUND` (FR-TEAM-3), and the Analyst can assign the lineup manually.
 - **Bootstrap:** with 1–2 demos, no lineup can reach 50% presence across demos. The UI then asks the Analyst to pick a lineup.
@@ -412,6 +416,7 @@ The thresholds below come from `AnalysisConfig`. The defaults are Q2 and Q3 from
   - `uv sync` installs from a locked environment. `uv run cs2scout` starts the server and opens the browser at `http://127.0.0.1:<port>`.
   - The default port is 8765. The setting `CS2SCOUT_PORT` changes it.
   - There is no Node toolchain at runtime: htmx and Plotly.js are vendored static files with checksums.
+  - **As built (WU-9):** `web/static/vendor/` holds htmx 2.0.11 and the full Plotly.js 4.2.0 bundle, plus their licences and `SHA256SUMS`. The UI uses the project's own small stylesheet (no CSS framework). This settles ADR-001's open points. Charts use colour-vision-safe palettes: Okabe-Ito orange/blue for T/CT, and yellow-orange-red for heatmaps.
 - **Dependencies:**
   - Exact pins are kept in `uv.lock`.
   - awpy is pinned to the version that passes the reference set (§10, spike S-1).
@@ -447,7 +452,7 @@ The thresholds below come from `AnalysisConfig`. The defaults are Q2 and Q3 from
 |---|---|---|---|---|---|
 | ADR-001 | UI topology | (a) Streamlit; (b) Dash; (c) FastAPI + Jinja + htmx + Plotly; (d) FastAPI JSON API + React/TS SPA | **(c)** | (a) Export and custom layout are weak, and the rerun model fights the stable filter state. (b) Viable, but callback-heavy, and export still needs custom assembly. (d) Most flexible, but adds a second language and toolchain plus a separate static-export build. (c) Keeps all logic in Python, has no build step, and the same templates and figure specs serve both the app and the export (DRV-6). Cost: rich client interactions are harder. | The UI needs canvas-heavy interaction, e.g. a 2D replay (Q6), or htmx partials get unwieldy. In that case add a JS "island" for that view first, before any SPA rewrite. |
 | ADR-002 | Demo parser | (a) awpy 3.x; (b) demoparser2 directly; (c) both | **(a) behind the adapter** | awpy provides trades, KAST/ADR, round economy, grenade trajectories, bomb sites and map assets, which means less of our own code where DRV-1 risk is high. Risks: 3.3.0 is new (2026-11-12), and the project has a small maintainer base. Mitigation: the adapter and canonical schema allow a demoparser2 adapter later. Pin the version after spike S-1. | Spike S-1 fails QS-1, or awpy stops tracking CS2 updates. |
-| ADR-003 | Storage and source retention | (a) SQLite + Parquet, keep a compressed source; (b) same, extract only; (c) a single DuckDB file; (d) JSON files | **(a)**. Retention is a setting, on by default. | SQLite gives a transactional version pointer (DRV-9). Parquet fits the Polars output from awpy. Retaining sources solves re-extraction after an upgrade (U-3), at a disk cost of ≤ 150 MB per demo, deduplicated. (b) would make parser upgrades lossy. (c) adds nothing while queries stay per entry. | Cross-entry analytics are wanted (→ DuckDB over Parquet), or disk usage becomes a problem. |
+| ADR-003 | Storage and source retention | (a) SQLite + Parquet, keep a compressed source; (b) same, extract only; (c) a single DuckDB file; (d) JSON files | **(a)**. Retention is a setting, on by default. | SQLite gives a transactional version pointer (DRV-9). Parquet fits the Polars output from awpy. Retaining sources solves re-extraction after an upgrade (U-3), at a disk cost of about 150–260 MB per demo (gzip, measured), deduplicated. (b) would make parser upgrades lossy. (c) adds nothing while queries stay per entry. | Cross-entry analytics are wanted (→ DuckDB over Parquet), or disk usage becomes a problem. |
 | ADR-004 | Findings contract and pattern identity | (a) one Findings Snapshot, mined once, filters recount; (b) mine per filter request | **(a)** | Stable IDs keep user labels (FR-TS-3). The UI, export and AI payload stay identical (FR-EXP-2). Recounting is cheap. Cost: patterns that exist only in a subset are not discovered. | The Analyst often needs "recent demos only" patterns. Then add an explicit "re-mine on subset" action, creating a derived version. |
 | ADR-005 | Parse execution | (a) child process per demo, serialized; (b) in-process threads; (c) a process pool | **(a)** | Native parser crashes cannot kill the server, cancel is a hard kill, memory is freed after each demo, and speed is irrelevant (D5). | D5 changes, or entries regularly exceed 50 demos. Then use a pool of size ≤ RAM / measured peak. |
 | ADR-006 | Zones | (a) place names via a `ZoneProvider`; (b) hand-drawn polygons now | **(a), with the port** | Zero authoring cost if A2 holds. The port makes (b) a drop-in replacement. | Spike S-1 shows `place` is unavailable or too coarse. |
@@ -455,14 +460,14 @@ The thresholds below come from `AnalysisConfig`. The defaults are Q2 and Q3 from
 **Decision status, updated 2026-11-15.** The owner accepted the proposed stack in chat ("Accept, plan delivery").
 
 - **Accepted:** ADR-001, ADR-003, ADR-004, ADR-005.
-- **Accepted, conditional on spike S-1:**
-  - ADR-002. awpy is the chosen parser, and the exact version is pinned when S-1 passes. If S-1 fails QS-1, the parser choice reopens.
-  - ADR-006. Place-name zones are the default. If S-1 shows `place` is unusable, PolygonZones replace them.
+- **Accepted, conditional on spike S-1:** ADR-002 and ADR-006. **S-1 passed on 2026-11-15** ([report](../../spikes/s1_report.md)), so both are now Accepted. awpy is pinned at 3.3.0. Zones use place names at site and lane level.
 
-Standalone records:
+Standalone records. File numbers follow the ADR IDs:
 
 - ADR-001: [decisions/0001-ui-topology.md](decisions/0001-ui-topology.md) (Accepted)
-- ADR-002..006: recorded in this table only. Each gets its own record when the owner asks for it, or when spike S-1 settles it (ADR-002, ADR-006).
+- ADR-002: [decisions/0002-demo-parser.md](decisions/0002-demo-parser.md) (Accepted)
+- ADR-006: [decisions/0006-zones.md](decisions/0006-zones.md) (Accepted)
+- ADR-003..005: recorded in this table only. Each gets its own record if the owner asks for one.
 
 ## 10. Architecture acceptance evidence (to execute during delivery, not now)
 
@@ -497,7 +502,7 @@ Standalone records:
 
 | ID | Question | Handling until answered |
 |---|---|---|
-| U-1 / S-1 | Real demo fidelity and `place` availability | Spike S-1 is the first delivery task. ADR-002 and ADR-006 stay Proposed until it passes. |
+| U-1 / S-1 | Real demo fidelity and `place` availability | **Resolved 2026-11-15** by spike S-1. ADR-002 and ADR-006 are accepted. |
 | U-6 | Licence of the awpy-data radar images for shared exports | Exports work locally. Check the licence before sharing an export (DRV-17). |
 | Q1–Q3 | Thresholds | The product-requirements defaults go in `AnalysisConfig`. They can be changed later without a re-parse. |
 | — | Owner acceptance of ADR-001..006 | Planning can start with them as Proposed. Changing ADR-001 after the UI work starts is expensive. |

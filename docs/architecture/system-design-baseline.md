@@ -40,7 +40,7 @@ Criticality: `DRIVER` shapes the structure. `SUPPORTING` constrains choices. `IN
 | DRV-4 | Recompute without re-parsing | APPLICABLE | DRIVER | CONFIRMED | Demos already imported: 0 re-parsed on reopen, on a filter change, or when another demo is added or removed | FR-LIB-3, J2 | — |
 | DRV-5 | Local-only trust boundary and privacy | APPLICABLE | DRIVER | CONFIRMED | Server reachable on loopback only. Two outbound calls are allowed: (1) the Claude API, after the Analyst confirms; (2) an explicit, one-time, pinned and checksummed map-asset fetch (`cs2scout assets fetch`). The second was added 2026-11-15 by the plan review. Exports contain no SteamIDs. | C-1, C-2, FR-AI-2, DEP-4, Q7 | Owner wants LAN or hosted access |
 | DRV-6 | Self-contained export | APPLICABLE | DRIVER | CONFIRMED | The exported file makes 0 network requests when opened. All charts and heatmaps render offline. | FR-EXP-1 | — |
-| DRV-7 | Map geometry: radar images, world-to-radar calibration, location granularity | APPLICABLE | DRIVER | ASSUMED (A2) | All current Active Duty maps have radar visuals. Setup detection works at place-name granularity. | DEP-2, A2, Q4 | A2 fails on real demos. The map pool changes. |
+| DRV-7 | Map geometry: radar images, world-to-radar calibration, location granularity | APPLICABLE | DRIVER | CONFIRMED for Mirage (S-1). Other maps ASSUMED. | All current Active Duty maps have radar visuals. Setup detection works at place-name granularity (site and lane level, ADR-006). | DEP-2, A2, Q4 | A2 fails on real demos. The map pool changes. |
 | DRV-8 | Pattern-mining quality: clustering of setups, strategies and lineups | APPLICABLE | DRIVER | UNKNOWN | Owner judgement on real demos. No numeric target exists. | FR-TS-1..3, FR-CT-2, FR-UTIL-2, Q2, Q3 | First real-data review |
 | DRV-9 | Durability of library entries | APPLICABLE | SUPPORTING | CONFIRMED | A crash or cancel during import or recompute leaves the previous entry state intact. No partial entries. | J1, J2, FR-LIB-4 | — |
 | DRV-10 | Idempotent import | APPLICABLE | SUPPORTING | CONFIRMED | Re-importing the same demo never adds it twice or changes stats | FR-IN-4 | — |
@@ -125,8 +125,8 @@ This is a design decision, not a fixed constraint.
 
 | ID | Item | Status | Owner / next evidence action |
 |---|---|---|---|
-| U-1 | A1/A2: GOTV demos contain all 10 players and full grenade events. Place names are fine-grained enough. | ASSUMED | Owner provides 3–5 real demos of one team on one map. Run a parser spike on them. |
-| U-2 | Demo size and row counts (§3) | Size CONFIRMED (208–361 MB, n=4). Row counts ASSUMED. | Measure the row counts during spike S-1 |
+| U-1 | A1/A2: GOTV demos contain all 10 players and full grenade events. Place names are fine-grained enough. | **CONFIRMED** (S-1, 2026-11-15). A1 holds. A2 holds at site and lane level, not for spots inside a site. | Resolved. See `spikes/s1_report.md` and ADR-006. |
+| U-2 | Demo size and row counts (§3) | **CONFIRMED** (n=4). 208–361 MB. 76k–127k snapshot rows. 1.6–2.9 MB extracts. 0.5–0.8 GB parse peak. | Resolved. See `spikes/s1_report.md`. |
 | U-3 | How the app re-extracts data after a parser or schema upgrade when source demos are gone | UNKNOWN → handling proposed | `target-design.md` ADR-003 proposes keeping a compressed copy of each source demo (a setting, on by default). The decision is Proposed until the owner accepts it. |
 | U-4 | Responsiveness target for filters (DRV-15) | UNKNOWN | Owner. Revisit only if the app feels slow. |
 | U-5 | LLM cost envelope (DRV-13) | UNKNOWN | Owner. Optional. |

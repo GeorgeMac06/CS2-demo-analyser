@@ -1,0 +1,18 @@
+{% import "_macros.html" as m %}
+{% if meta is none %}
+<div class="card muted">No positions for this choice (for example, no plants means no post-plant positions).</div>
+{% else %}
+<div class="grid2">
+  <div class="card">
+    {{ m.figure("fig-heat-" ~ grid_id.replace(".", "-"), figure) }}
+    {% if meta.space == "world" %}<p class="muted">Map image not installed: positions are shown without the map (run <code>uv run cs2scout assets fetch</code>).</p>{% endif %}
+  </div>
+  <div class="card table-wrap">
+    <table>
+      <caption>Most time spent ({{ meta.samples }} position samples)</caption>
+      <thead><tr><th>Place</th><th class="num">Share of time</th></tr></thead>
+      <tbody>{% for p in meta.top_places %}<tr><td>{{ p.place }}</td><td class="num">{{ p.share }}%</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+</div>
+{% endif %}

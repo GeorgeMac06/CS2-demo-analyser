@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="cs2scout-token" content="{{ token }}">
+  <title>{% block title %}CS2 Demo Scout{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/vendor/htmx-2.0.11.min.js"></script>
+  <script src="/static/vendor/plotly-4.2.0.min.js"></script>
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/">CS2 Demo Scout</a>
+    <a href="/new">New analysis</a>
+    <span class="ver">v{{ version }} · local only</span>
+  </header>
+  <main>{% block main %}{% endblock %}</main>
+  <aside id="drawer" aria-live="polite"></aside>
+</body>
+</html>

@@ -15,7 +15,8 @@
     - The reference is **inside the demo**. A CS2 demo records two separate things: the event stream (kills, damage, round ends), which our stats are built from, and the game server's own scoreboard counters (per-player kills, deaths, assists, damage; team scores).
     - Comparing the two is an independent check, because the counters are not produced by our logic. They also already reflect any round restores done by admins.
     - The owner supplies no scoreboard data (decided 2026-11-15; this replaces the earlier `goldens.yaml`).
-    - S-1 must confirm awpy can read the counters through `ticks()` raw fields [UNVERIFIED].
+    - **Confirmed by S-1 (2026-11-15):** awpy reads the counters through `ticks()` raw fields, and our event-based K/D/A matched them for 40/40 players ([report](../../spikes/s1_report.md)).
+    - The team-score oracle reads `CCSTeam` entities with `ticks(players_only=False)`. That call peaks at 5–9 GB of memory, so G-demos runs demos one at a time.
     - Fallbacks if it cannot: (a) read the counters with demoparser2 in the test only, which is an independent decoder (demoparser2 exposes them as `kills_total`, `deaths_total`, etc.); (b) as a last resort, owner-supplied FACEIT scoreboards.
   - Synthetic matches (WU-3, committed) prove our own logic. That covers team resolution, rounds, patterns, labels and filters, with exact known answers.
   - `FakeParserAdapter` replaces only awpy. Everything after the parser, including the child process, store and API, stays real.
@@ -28,7 +29,7 @@ Priority: **H** means wrong scouting conclusions, data loss or a data leak. **M*
 
 | T-ID | Protected outcome | Defect class | Pri | Action | Level / setup | Oracle | Gate | Plan / AT |
 |---|---|---|---|---|---|---|---|---|
-| T-01 | Numbers match the real match | Wrong success: parser mapping, round boundaries, side labels, warmup/knife kills counted, suicides or team kills misattributed, round restores double-counted | **H** | ADD | E2E through the API with the P-1 demos. **The reference is the game server's own scoreboard counters recorded in each demo**, read independently of our event-based stats (§1). | Per player K/D/A from our events equal the server's counters at the last tick. Team scores at the end of round 12 and at the end equal our round winners. Every round's side for the scouted team matches the half structure. A demo where neither team reached the win condition (13, or the overtime rule) is flagged incomplete (FR-IN-5). ADR within the tolerance set in S-1. | G-demos | WU-2, 5, 6, 7 / AT-1 |
+| T-01 | Numbers match the real match | Wrong success: parser mapping, round boundaries, side labels, warmup/knife kills counted, suicides or team kills misattributed, round restores double-counted | **H** | ADD | E2E through the API with the P-1 demos. **The reference is the game server's own scoreboard counters recorded in each demo**, read independently of our event-based stats (§1). | Per player K/D/A from our events equal the server's counters at the last tick, using the S-1 counting rules (live window only; kills = enemy kills, team kills ignored; deaths = all deaths; assists = assists on enemy victims, flash assists included). Team scores at the end of round 12 and at the end equal our round winners. Every round's side for the scouted team matches the half structure. A demo where neither team reached the win condition (13, or the overtime rule) is flagged incomplete (FR-IN-5). ADR within **±2.0** of server damage ÷ rounds (set in S-1: max observed 1.75). | G-demos | WU-2, 5, 6, 7 / AT-1 |
 | T-02 | The right team, the right side | Boundary: half swap, overtime swaps (MR3), a stand-in in 1 demo, a 4-core demo, a nickname change, 1–2 demo bootstrap | **H** | ADD | E2E through the API, synthetic scenarios | Roster = the expected SteamIDs. Stand-in flagged. Side per round as scripted. `TEAM_NOT_FOUND` for a demo with 2 core players. | G-fast | WU-6 |
 | T-03 | Buy classes are correct | Boundary: value exactly at a threshold, pistol rounds 1/13, overtime start rounds, custom thresholds from config | M | ADD | Unit tests on `core.rounds` with table-driven cases | Expected class per case. A non-default config changes the result. | G-fast | WU-6 |
 | T-04 | Bad demos never corrupt an entry | Invalid input accepted: truncated demo, `HL2DEMO` header (CS:GO), random bytes, wrong map, the same demo renamed, the same match re-encoded, a parser that raises, a parser that calls `os._exit`, a parser that hangs past the timeout | **H** | ADD | E2E through the API. Truncated copies of P-1 demos (G-demos). Synthetic headers and `FakeParserAdapter` crash modes (G-fast). | Exact error code per file. A truncated demo is either rejected or accepted with the incomplete flag, never as a complete match. The other files import. Entry version and findings are unchanged. No orphaned `_partial` or tmp files. | G-fast + G-demos | WU-2, 5 / AT-4 |
@@ -91,3 +92,20 @@ There is no CI yet, so gates are run locally. Adding CI is a trigger for `ln-63`
 | Q6 replay viewer accepted | Add a browser journey for the replay. No change to the existing tests. |
 
 **Net portfolio:** 18 ADD, 1 MERGE, and 6 justified NO_TEST.
+
+## 7. Status (2026-11-15)
+
+| T-ID | Status | Where |
+|---|---|---|
+| T-01 | **PASS** (G-demos): adapter part, plus full end to end through the API with server team scores, K/D/A and ADR | `tests/test_awpy_adapter_demos.py`, `tests/test_real_demos_e2e.py` |
+| T-02, T-03 | **PASS** | `tests/test_team_and_rounds.py` |
+| T-04 | **PASS**: worker crash modes, import-level bad inputs, truncated real demo | `tests/test_extract_worker.py`, `tests/test_import_api.py`, `tests/test_real_demos_e2e.py` |
+| T-05 (+T-12 merged) | **PASS** across 8 filter combinations | `tests/test_findings_api.py` |
+| T-06 | **PASS**: process killed mid-recompute, cancel during parse, restart cleanup | `tests/test_library_versions.py`, `tests/test_import_api.py` |
+| T-07 | **PASS**: one parse per demo, reuse across entries, filters never parse, parser upgrade rebuilds from source or keeps a stale extract | `tests/test_import_api.py`, `tests/test_findings_api.py` |
+| T-08 | **PASS** | `tests/test_import_api.py` |
+| T-09 | **PASS** | `tests/test_findings_api.py` |
+| T-18, T-19 | **PASS** | `tests/test_local_guard.py`, import-linter |
+| T-16 | **PASS** (G-demos): all live positions on the radar; A and B plants in separate clusters. Visual overlay checked on one demo. | `tests/test_assets_and_zones.py` |
+| T-17 | **PASS** (G-browser): J1→J3 + exclude demo + delete, semantic locators, chart/table pairing (C-3), no console errors | `tests/test_browser_journey.py`; page and template smoke tests in G-fast: `tests/test_pages.py` |
+| T-10, T-11, T-13..T-15 | Not started (WU-10 onwards) | — |

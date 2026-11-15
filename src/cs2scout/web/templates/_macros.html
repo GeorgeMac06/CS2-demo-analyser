@@ -1,0 +1,17 @@
+{# "k of n" support: opens the rounds behind a finding (FR-CONF-1, FR-CONF-3). #}
+{% macro support(entry_id, f, label=None) -%}
+  {%- if f -%}
+  <button type="button" class="support"
+    hx-get="/ui/entries/{{ entry_id }}/rounds?title={{ (label or f.title) | urlencode }}{% for r in f.round_refs %}&refs={{ r | urlencode }}{% endfor %}"
+    hx-target="#drawer" title="{{ f.support.k }} of {{ f.support.n }} eligible rounds, in {{ f.support.demos }} demo(s). Click to list them.">
+    {{ f.support.k }}/{{ f.support.n }}</button>
+  {%- if "low_sample" in f.flags %} <span class="chip warn" title="Fewer than 10 eligible rounds: treat as a hint, not a pattern.">low sample</span>{% endif -%}
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro figure(id, spec) -%}
+<script type="application/json" id="{{ id }}">{{ spec | tojson }}</script>
+<div class="chart" data-figure="{{ id }}" role="img" aria-label="Chart; the same data is in the table next to it."></div>
+{%- endmacro %}
+
+{% macro num(v, suffix="") -%}{% if v is none %}—{% else %}{{ v }}{{ suffix }}{% endif %}{%- endmacro %}

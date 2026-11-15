@@ -235,8 +235,8 @@ Functional acceptance (§4) says the app works. It does not show that the app im
 
 ## 8. Assumptions that could change scope
 
-- A1: FACEIT/ESEA demos are GOTV/server demos that contain all 10 players and full grenade events. If some are POV demos, coverage drops.
-- A2: The built-in place names in the demo data are fine-grained enough for setup detection. If not, hand-drawn callout polygons per map become a v1 dependency (DEP-2).
+- A1: FACEIT/ESEA demos are GOTV/server demos that contain all 10 players and full grenade events. If some are POV demos, coverage drops. **Confirmed 2026-11-15** on 4 ESEA Mirage demos (spike S-1).
+- A2: The built-in place names in the demo data are fine-grained enough for setup detection. If not, hand-drawn callout polygons per map become a v1 dependency (DEP-2). **Partly confirmed 2026-11-15:** place names are always present and work at site and lane level (e.g. "A ramp", "palace", "B apartments"). They do not name spots inside a site (e.g. firebox vs ticket booth). v1 accepts this. The M2 review decides whether finer positions are needed (ADR-006).
 - A3: The usual competitive format is MR12. Other formats (MR15, wingman) are out of scope.
 - A4: 5+ demos per map is enough for strategy clustering to be useful. Below that, the app depends on low-sample warnings.
   - **At risk (2026-11-15).** The owner found that FACEIT no longer allows downloading demos from earlier ESEA seasons. Only the current season's demos are available. The first sample is **4 Mirage demos** for one team.

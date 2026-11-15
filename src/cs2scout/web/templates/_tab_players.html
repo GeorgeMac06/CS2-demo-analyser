@@ -1,0 +1,81 @@
+{% import "_macros.html" as m %}
+{% set eid = entry.id %}
+<h2>Players {% if side != "all" %}<span class="side-{{ side }}">({{ side }})</span>{% endif %}</h2>
+<div class="card table-wrap">
+  <table>
+    <caption class="sr-only">Player statistics for the rounds that match the filters</caption>
+    <thead><tr><th>Player</th><th>Rounds</th><th class="num">K</th><th class="num">D</th><th class="num">A</th>
+      <th class="num">K/D</th><th class="num">ADR</th><th class="num">KAST</th><th class="num">HS</th>
+      <th class="num">Trades</th></tr></thead>
+    <tbody>
+    {% for p in players %}{% set s = p.stats %}
+      <tr><td>{{ p.member.nick }}{% if p.member.role == "standin" %} <span class="chip">stand-in</span>{% endif %}</td>
+      {% if s %}
+        <td>{{ m.support(eid, s, p.member.nick ~ " rounds") }}</td>
+        <td class="num">{{ s.params.kills }}</td><td class="num">{{ s.params.deaths }}</td><td class="num">{{ s.params.assists }}</td>
+        <td class="num">{{ m.num(s.params.kd) }}</td><td class="num">{{ m.num(s.params.adr) }}</td>
+        <td class="num">{{ m.num(s.params.kast_pct, "%") }}</td><td class="num">{{ m.num(s.params.hs_pct, "%") }}</td>
+        <td class="num">{{ s.params.trade_kills }}</td>
+      {% else %}<td colspan="9" class="muted">no rounds match</td>{% endif %}</tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2>Opening duels</h2>
+<div class="card table-wrap">
+  <table>
+    <caption class="sr-only">First kill or death of each round</caption>
+    <thead><tr><th>Player</th><th>Duels</th><th class="num">Won</th><th class="num">Lost</th><th class="num">Success</th><th class="num">Takes part</th></tr></thead>
+    <tbody>
+    {% for p in players if p.open %}{% set o = p.open %}
+      <tr><td>{{ p.member.nick }}</td><td>{{ m.support(eid, o, p.member.nick ~ " opening duels") }}</td>
+        <td class="num">{{ o.params.kills }}</td><td class="num">{{ o.params.deaths }}</td>
+        <td class="num">{{ m.num(o.params.success_pct, "%") }}</td><td class="num">{{ m.num(o.params.attempt_pct, "%") }} of rounds</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2>Utility</h2>
+<div class="card table-wrap">
+  <table>
+    <caption class="sr-only">Utility per round</caption>
+    <thead><tr><th>Player</th><th class="num">Thrown / round</th><th class="num">Smokes</th><th class="num">Flashes</th>
+      <th class="num">HE</th><th class="num">Molotovs</th><th class="num">Enemies flashed</th><th class="num">Per flash</th>
+      <th class="num">Team flashed</th><th class="num">Flash assists</th><th class="num">Util dmg / round</th><th class="num">Saved / round</th></tr></thead>
+    <tbody>
+    {% for p in players if p.util %}{% set u = p.util.params %}
+      <tr><td>{{ p.member.nick }}</td><td class="num">{{ m.num(u.thrown_per_round) }}</td>
+        <td class="num">{{ m.num(u.per_round.smokes) }}</td><td class="num">{{ m.num(u.per_round.flashes) }}</td>
+        <td class="num">{{ m.num(u.per_round.hes) }}</td><td class="num">{{ m.num(u.per_round.molotovs) }}</td>
+        <td class="num">{{ u.enemies_flashed }}</td><td class="num">{{ m.num(u.enemies_per_flash) }}</td>
+        <td class="num">{{ u.team_flashed }}</td><td class="num">{{ u.flash_assists }}</td>
+        <td class="num">{{ m.num(u.utility_damage_per_round) }}</td><td class="num">{{ m.num(u.saved_per_round) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2>Where each player plays</h2>
+{% include "_heat_picker.html" %}
+
+<details class="card">
+  <summary><strong>Edit roster</strong> <span class="muted">(recomputes the analysis)</span></summary>
+  <form hx-post="/ui/entries/{{ eid }}/roster" hx-target="#roster-job">
+    <table>
+      <thead><tr><th>Player</th><th>Role</th></tr></thead>
+      <tbody>
+      {% for r in entry.roster %}
+        <tr><td>{{ r.nick or r.steamid }}</td>
+          <td><select name="role_{{ r.steamid }}" aria-label="Role of {{ r.nick or r.steamid }}">
+            {% for role, label in [("core", "core"), ("standin", "stand-in"), ("excluded", "leave out of stats")] %}
+            <option value="{{ role }}" {% if r.role == role %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p><button type="submit">Save roster</button></p>
+  </form>
+  <div id="roster-job"></div>
+</details>

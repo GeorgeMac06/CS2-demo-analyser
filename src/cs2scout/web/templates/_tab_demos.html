@@ -1,0 +1,33 @@
+{% set by_label = {} %}{% for d in snapshot.demos %}{% set _ = by_label.update({d.label: d}) %}{% endfor %}
+<h2>Demos</h2>
+<p class="muted">Demos carry no match date, so the file's date is used. Correct it here: recency
+  and date filters depend on it. Every change recomputes the analysis from stored data (no re-parse).</p>
+<div id="demo-job"></div>
+<div class="card table-wrap">
+  <table>
+    <caption class="sr-only">Demos in this analysis and their settings</caption>
+    <thead><tr><th>Demo</th><th>File</th><th>Match date</th><th>Score</th><th>Team in demo</th><th>Use</th><th></th></tr></thead>
+    <tbody>
+    {% for d in entry.demos %}{% set s = by_label.get(d.label) %}
+      <tr>
+        <td>{{ d.label }}</td><td class="muted">{{ d.file }}</td>
+        <td colspan="5">
+          <form class="row" hx-post="/ui/entries/{{ entry.id }}/demos/{{ d.sha256 }}" hx-target="#demo-job"
+                aria-label="Settings for demo {{ d.label }}">
+            <input type="hidden" name="has_included" value="1">
+            <input type="date" name="played_on" value="{{ d.played_at[:10] if d.played_at }}" aria-label="Match date of {{ d.label }}">
+            <span style="min-width:5em">{% if s and s.used %}{{ s.score }}{% elif s %}<span class="chip bad">team not found</span>{% else %}—{% endif %}</span>
+            <select name="lineup" aria-label="Which lineup is the team in {{ d.label }}">
+              <option value="auto" {% if not d.lineup_override %}selected{% endif %}>automatic</option>
+              <option value="A" {% if d.lineup_override == "A" %}selected{% endif %}>started T</option>
+              <option value="B" {% if d.lineup_override == "B" %}selected{% endif %}>started CT</option>
+            </select>
+            <label><input type="checkbox" name="included" {% if d.included %}checked{% endif %}> include</label>
+            <button type="submit" class="secondary">Apply</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>

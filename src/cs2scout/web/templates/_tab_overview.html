@@ -1,0 +1,37 @@
+{% import "_macros.html" as m %}
+{% set eid = entry.id %}
+<h2>Matches</h2>
+<div class="card table-wrap">
+  <table>
+    <caption class="sr-only">Demos in this analysis</caption>
+    <thead><tr><th>Demo</th><th>Date</th><th>Score</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for d in snapshot.demos %}
+      <tr><td>{{ d.label }}</td><td>{{ d.played_at[:10] if d.played_at }}</td>
+        <td>{{ d.score if d.used else "—" }}</td>
+        <td>{% if not d.used %}<span class="chip bad">team not found</span>{% elif not d.complete %}<span class="chip warn">incomplete</span>{% else %}<span class="chip ok">complete</span>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="muted">{{ snapshot.round_index | length }} rounds match the filters.</p>
+
+<h2>Round win rate by buy</h2>
+<div class="grid2">
+  <div class="card">{{ m.figure("fig-winrate", winrate_fig) }}</div>
+  <div class="card table-wrap">
+    <table>
+      <caption class="sr-only">Round win rate by side and buy type</caption>
+      <thead><tr><th>Side</th><th>Buy</th><th class="num">Won</th><th>Rounds</th></tr></thead>
+      <tbody>
+      {% for f in winrates %}
+        <tr><td class="side-{{ f.params.side }}">{{ f.params.side }}</td><td>{{ f.params.buy }}</td>
+          <td class="num">{{ m.num(f.params.win_pct, "%") }}</td><td>{{ m.support(eid, f) }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<h2>Where the team plays</h2>
+{% include "_heat_picker.html" %}

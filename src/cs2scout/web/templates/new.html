@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{% if entry %}Add demos{% else %}New analysis{% endif %} · CS2 Demo Scout{% endblock %}
+{% block main %}
+{% if entry %}
+<h1>Add demos to {{ entry.name }}</h1>
+<p class="muted">Only new demos are parsed. Demos already in this analysis are skipped.</p>
+{% else %}
+<h1>New analysis</h1>
+<p class="muted">Import demos of one team on one map. The app proposes the team; you confirm it.</p>
+{% endif %}
+<div id="step">
+  <form class="card" hx-post="/ui/imports" hx-target="#step" hx-swap="innerHTML">
+    {% if entry %}<input type="hidden" name="entry_id" value="{{ entry.id }}">{% endif %}
+    <label for="paths"><strong>Demo files or folders on this PC</strong></label>
+    <p class="muted">One path per line. Folders are scanned for .dem, .dem.gz, .dem.bz2 and .zip.</p>
+    <textarea id="paths" name="paths" placeholder="C:\Users\you\Desktop\Demos\Team\Mirage"></textarea>
+    <p><button type="submit">Import</button></p>
+  </form>
+  <form class="card dropzone" hx-post="/ui/uploads" hx-target="#step" hx-swap="innerHTML"
+        hx-encoding="multipart/form-data">
+    {% if entry %}<input type="hidden" name="entry_id" value="{{ entry.id }}">{% endif %}
+    <label for="files"><strong>Or choose demo files</strong></label>
+    <p><input id="files" type="file" name="files" multiple accept=".dem,.gz,.bz2,.zip"></p>
+    <button type="submit" class="secondary">Upload and import</button>
+  </form>
+</div>
+{% endblock %}

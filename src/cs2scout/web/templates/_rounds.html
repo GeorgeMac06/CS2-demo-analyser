@@ -1,0 +1,17 @@
+<div class="drawer" role="dialog" aria-label="{{ title }}">
+  <div class="row"><h2 style="margin:0">{{ title }}</h2>
+    <button type="button" class="secondary" style="margin-left:auto" onclick="document.getElementById('drawer').innerHTML=''">Close</button></div>
+  <p class="muted">{{ rounds | length }} round{{ "s" if rounds | length != 1 }}.</p>
+  <table>
+    <caption class="sr-only">Rounds behind this number</caption>
+    <thead><tr><th>Demo</th><th>Date</th><th class="num">Round</th><th>Side</th><th>Buy vs</th><th>Score before</th><th>Result</th></tr></thead>
+    <tbody>
+    {% for r in rounds %}
+      <tr><td>{{ r.demo_label }}</td><td>{{ r.played_at[:10] if r.played_at }}</td><td class="num">{{ r.round_num }}{% if r.is_ot %} OT{% endif %}</td>
+        <td class="side-{{ r.side }}">{{ r.side }}</td><td>{{ r.buy }} vs {{ r.opp_buy }}</td>
+        <td>{{ r.score_us }}–{{ r.score_them }}</td>
+        <td>{% if r.won %}<span class="chip ok">won</span>{% else %}<span class="chip bad">lost</span>{% endif %} <span class="muted">{{ r.end_reason.replace("_", " ") }}</span></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>

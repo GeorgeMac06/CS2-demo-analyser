@@ -1,0 +1,13 @@
+{% if not heat.has_grids %}
+<div class="card muted">No position data yet.</div>
+{% else %}
+<form class="card row" hx-get="/ui/entries/{{ entry.id }}/heatmap" hx-target="#heat" hx-trigger="load, change"
+      aria-label="Choose heatmap">
+  <label>Who <select name="subject">{% for key, name in heat.subjects %}<option value="{{ key }}" {% if key == heat.subject %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+  <label>Side <select name="side"><option value="T">T</option><option value="CT">CT</option></select></label>
+  <label>Phase <select name="phase">{% for p in heat.phases %}<option value="{{ p }}">{{ p.replace("_", " ") }}</option>{% endfor %}</select></label>
+  {% if heat.levels | length > 1 %}<label>Level <select name="level">{% for l in heat.levels %}<option value="{{ l }}">{{ l }}</option>{% endfor %}</select></label>{% endif %}
+  <span class="muted">Heatmaps use every included demo; the filters above do not change them.</span>
+</form>
+<div id="heat"></div>
+{% endif %}

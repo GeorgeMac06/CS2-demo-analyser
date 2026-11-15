@@ -1,0 +1,21 @@
+{% set p = job.progress or {} %}
+<div class="card" id="job-{{ job.job_id }}" role="status"
+     {% if job.state in ("queued", "running") %}hx-get="/ui/jobs/{{ job.job_id }}?then={{ then | urlencode }}"
+     hx-trigger="every 1s" hx-swap="outerHTML"{% endif %}>
+  {% if job.state in ("queued", "running") %}
+    <strong>{{ {"import": "Importing demos", "add_demos": "Adding demos", "recompute": "Updating the analysis"}.get(job.kind, "Working") }}…</strong>
+    <p class="muted">{{ p.phase or "starting" }}{% if p.total %}: {{ p.done or 0 }} of {{ p.total }}{% endif %}{% if p.file %} · {{ p.file }}{% endif %}</p>
+    {% if p.total %}<div class="progress" aria-hidden="true"><div style="width: {{ ((p.done or 0) / p.total * 100) | round }}%"></div></div>{% endif %}
+    <p><button class="secondary" hx-post="/api/jobs/{{ job.job_id }}/cancel" hx-swap="none">Cancel</button></p>
+  {% elif job.state == "done" %}
+    {% set r = job.result.get("import", job.result) if job.result else {} %}
+    <strong>Done.</strong>
+    {% if r.files %}{% include "_file_table.html" %}{% endif %}
+    {% if then %}<p><a class="button" href="{{ then }}">Continue</a></p>{% endif %}
+  {% elif job.state == "cancelled" %}
+    <strong>Cancelled.</strong> <span class="muted">Demos parsed before the cancel are kept and will not be parsed again.</span>
+    <p><a href="/new">Start again</a></p>
+  {% else %}
+    <div class="error"><strong>Something went wrong.</strong> <span class="muted">{{ job.error }}</span></div>
+  {% endif %}
+</div>

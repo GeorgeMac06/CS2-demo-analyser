@@ -1,0 +1,19 @@
+<div class="table-wrap">
+<table>
+  <caption class="sr-only">Import result per file</caption>
+  <thead><tr><th>File</th><th>Result</th><th>Details</th></tr></thead>
+  <tbody>
+  {% for f in r.files %}
+    <tr>
+      <td>{{ f.file }}</td>
+      <td>{% if f.status == "accepted" %}<span class="chip ok">accepted</span>{% elif f.status == "duplicate" %}<span class="chip">duplicate</span>{% else %}<span class="chip bad">rejected</span>{% endif %}
+        {% if f.code == "INCOMPLETE_MATCH" %}<span class="chip warn">incomplete</span>{% endif %}</td>
+      <td class="muted">{% if f.score %}{{ f.score }} · {{ f.rounds }} rounds{% endif %}{% if f.message %} {{ f.message }}{% endif %}</td>
+    </tr>
+  {% endfor %}
+  {% for s in r.skipped or [] %}
+    <tr><td>{{ s.file }}</td><td><span class="chip">skipped</span></td><td class="muted">{{ s.reason }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>

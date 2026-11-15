@@ -113,7 +113,7 @@ def test_real_server_listens_on_loopback_only(tmp_path: Path) -> None:
     port = _free_port()
     env = {**os.environ, "CS2SCOUT_HOME": str(tmp_path / "ws"), "CS2SCOUT_PORT": str(port)}
     proc = subprocess.Popen(  # noqa: S603 - fixed argv, test-owned process
-        [sys.executable, "-m", "cs2scout"],
+        [sys.executable, "-m", "cs2scout", "serve", "--no-browser"],
         env=env,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

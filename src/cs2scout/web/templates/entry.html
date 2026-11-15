@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ entry.name }} · CS2 Demo Scout{% endblock %}
+{% block main %}
+<div class="row">
+  <div>
+    <h1>{{ entry.name }}</h1>
+    <p class="muted">{{ entry.team }} · {{ entry.map }} · {{ entry.demo_count }} demo{{ "s" if entry.demo_count != 1 }}{% if entry.included_count != entry.demo_count %} ({{ entry.included_count }} included){% endif %}
+      {% if entry.date_range %}· {{ entry.date_range[0][:10] }} – {{ entry.date_range[1][:10] }}{% endif %}
+      {% if snapshot %}· version {{ snapshot.entry.version }}{% endif %}
+      {% if entry.busy %}<span class="chip">updating…</span>{% endif %}</p>
+  </div>
+  <div class="row" style="margin-left:auto">
+    <a class="button" href="/entries/{{ entry.id }}/add">Add demos</a>
+    <details><summary>Rename</summary>
+      <form hx-post="/ui/entries/{{ entry.id }}/rename" hx-target="#notice">
+        <label>New name <input name="name" value="{{ entry.name }}" maxlength="120" required></label>
+        <button type="submit" class="secondary">Save</button></form>
+    </details>
+    <details><summary>Delete</summary>
+      <form hx-post="/ui/entries/{{ entry.id }}/delete" hx-target="#notice">
+        <p class="muted">This removes the analysis. Type its name to confirm.</p>
+        <label>Name <input name="confirm" autocomplete="off" aria-label="Type the analysis name to confirm"></label>
+        <button type="submit" class="danger">Delete analysis</button></form>
+    </details>
+  </div>
+</div>
+<div id="notice"></div>
+{% if snapshot and snapshot.problems %}
+<div class="card">{% for p in snapshot.problems %}<p><span class="chip warn">{{ p.code }}</span> {{ p.label }}: {{ p.message }}</p>{% endfor %}</div>
+{% endif %}
+
+<form id="filters" class="card row" hx-get="/ui/entries/{{ entry.id }}/tab/{{ tab }}" hx-target="#tab"
+      hx-trigger="change, submit" aria-label="Filter rounds">
+  <input type="hidden" name="f" value="1">
+  <fieldset><legend>Side</legend>
+    <label><input type="radio" name="side" value="" checked> both</label>
+    <label><input type="radio" name="side" value="T"> T</label>
+    <label><input type="radio" name="side" value="CT"> CT</label></fieldset>
+  <fieldset><legend>Our buy</legend>
+    {% for b in buys %}<label><input type="checkbox" name="buy" value="{{ b }}"> {{ b }}</label>{% endfor %}</fieldset>
+  <fieldset><legend>Their buy</legend>
+    {% for b in buys %}<label><input type="checkbox" name="opp_buy" value="{{ b }}"> {{ b }}</label>{% endfor %}</fieldset>
+  <fieldset><legend>Dates</legend>
+    <label>from <input type="date" name="from"></label> <label>to <input type="date" name="to"></label></fieldset>
+  <label><input type="checkbox" name="ot" checked> overtime</label>
+</form>
+
+<nav class="tabs" aria-label="Sections">
+  {% for t, label in [("overview", "Overview"), ("players", "Players"), ("demos", "Demos")] %}
+  <a href="/entries/{{ entry.id }}?tab={{ t }}" {% if t == tab %}aria-current="page"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+<section id="tab">{% include tab_template %}</section>
+{% endblock %}
