@@ -9,6 +9,7 @@ from pathlib import Path
 
 from cs2scout.ingest.files import Limits
 from cs2scout.jobs.extract_worker import DEFAULT_ADAPTER, DEFAULT_TIMEOUT_S
+from cs2scout.store import prefs
 
 # Fixed by design (C-1, DRV-5): the server is never reachable from the network.
 LOOPBACK_HOST = "127.0.0.1"
@@ -54,7 +55,8 @@ class Settings:
             base = environ.get("LOCALAPPDATA")
             home = (Path(base) if base else Path.home()) / "CS2DemoScout"
 
-        port_value = environ.get("CS2SCOUT_PORT", str(DEFAULT_PORT))
+        # The port: CS2SCOUT_PORT, else the one saved in Settings, else the default.
+        port_value = environ.get("CS2SCOUT_PORT") or str(prefs.load(home).port or DEFAULT_PORT)
         try:
             port = int(port_value)
         except ValueError:

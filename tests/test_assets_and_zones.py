@@ -164,3 +164,27 @@ def test_real_positions_land_on_the_radar(real_demo: Path, tmp_path: Path) -> No
             d_own = ((row["px"] - own[0]) ** 2 + (row["py"] - own[1]) ** 2) ** 0.5
             d_other = ((row["px"] - other[0]) ** 2 + (row["py"] - other[1]) ** 2) ** 0.5
             assert d_own < d_other, "each plant sits nearer its own site"
+
+
+def test_export_can_leave_out_map_images(tmp_path: Path, monkeypatch) -> None:
+    """P-6: an export can be shared without the radar images derived from game files."""
+    files = release_files()
+    monkeypatch.setattr(assets, "PINNED_SHA256",
+                        {k: hashlib.sha256(v).hexdigest() for k, v in files.items()})  # fmt: skip
+    home = tmp_path / "workspace"
+    assets.fetch(home, opener=fake_release(files))
+    src = tmp_path / "in"
+    src.mkdir()
+    for i in range(3):
+        write_demo(src / f"m{i}.dem", simple_match(lineup("a"), lineup(f"o{i}"), server=f"x{i}"))
+    client, settings = make_api(home)
+    with client:
+        api = Api(client, settings)
+        entry = api.confirm(api.run_import([src]))
+        with_maps = api.post(f"/api/entries/{entry}/export", {}).text
+        without = api.post(f"/api/entries/{entry}/export", {"maps": False}).text
+    radars = '<script type="application/json" id="radars">'
+    assert radars + '{"de_mirage": "data:image/png;base64,' in with_maps
+    assert "Map images: awpy-data" in with_maps
+    assert radars + "{}</script>" in without and "Map images" not in without
+    assert 'data-figure="' in without  # the figures are still there, on a blank map

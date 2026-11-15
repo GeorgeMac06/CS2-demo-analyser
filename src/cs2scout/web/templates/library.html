@@ -31,4 +31,6 @@
   <a class="button" href="/new">New analysis</a>
 </div>
 {% endif %}
+<p class="muted">Workspace: {{ usage.total_bytes | size }} used · {{ usage.free_bytes | size }} free on this drive · <a href="/settings">settings</a></p>
+{% if usage.over_cap %}<div class="card"><span class="chip warn">over the limit</span> The workspace is larger than the {{ usage.cap_bytes | size }} limit set in <a href="/settings">Settings</a>.</div>{% endif %}
 {% endblock %}

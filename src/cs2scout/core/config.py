@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 
 
 @dataclass(frozen=True)
@@ -30,3 +30,10 @@ class AnalysisConfig:
     def digest(self) -> str:
         blob = json.dumps(asdict(self), sort_keys=True).encode()
         return hashlib.sha256(blob).hexdigest()[:16]
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AnalysisConfig:
+        """Rebuild a saved config; unknown keys (from other app versions) are ignored."""
+        known = {f.name for f in fields(cls)}
+        values = {k: tuple(v) if isinstance(v, list) else v for k, v in data.items() if k in known}
+        return cls(**values)

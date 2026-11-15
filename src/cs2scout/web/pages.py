@@ -8,6 +8,7 @@ module only gathers data for templates and turns API errors into readable messag
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import uuid
 from pathlib import Path
@@ -16,6 +17,7 @@ import polars as pl
 from fastapi import APIRouter, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
+from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 
 from cs2scout import __version__
@@ -25,6 +27,7 @@ from cs2scout.ingest.files import is_candidate
 from cs2scout.jobs.import_job import run_import
 from cs2scout.store import assets
 from cs2scout.store.library import TMP_PREFIX
+from cs2scout.store.workspace import usage
 from cs2scout.web import api
 from cs2scout.web.errors import ApiError
 from cs2scout.web.figures import heatmap_figure, lineups_figure, tempo_figure, winrate_figure
@@ -32,6 +35,19 @@ from cs2scout.web.findings_view import filtered_snapshot
 
 router = APIRouter()
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+
+
+def _size(n: int | None) -> str:
+    """Bytes for people, in decimal units."""
+    value = float(n or 0)
+    for unit in ("B", "KB", "MB", "GB"):
+        if value < 1000:
+            return f"{value:.0f} {unit}" if unit == "B" else f"{value:.1f} {unit}"
+        value /= 1000
+    return f"{value:.1f} TB"
+
+
+templates.env.filters["size"] = _size
 TABS = ("overview", "t", "ct", "utility", "players", "demos", "brief")
 BUYS = ("pistol", "eco", "force", "full")
 ROLES = ("core", "standin", "excluded")
@@ -80,8 +96,9 @@ def _snapshot(request: Request, entry_id: int, flt: RoundFilter | None = None) -
 @router.get("/", response_class=HTMLResponse)
 def library_page(request: Request) -> HTMLResponse:
     entries = api.list_entries(request)
-    return _page(request, "library.html", entries=entries,
-                 assets_ok=assets.installed(request.app.state.settings.home))  # fmt: skip
+    home = request.app.state.settings.home
+    return _page(request, "library.html", entries=entries, assets_ok=assets.installed(home),
+                 usage=usage(home, api.prefs_of(request).workspace_cap_gb))  # fmt: skip
 
 
 @router.get("/new", response_class=HTMLResponse)
@@ -134,7 +151,7 @@ async def ui_upload(request: Request) -> HTMLResponse:
         shutil.rmtree(folder, ignore_errors=True)
         return _error(request, "No .dem, .dem.gz, .dem.bz2 or .zip files were dropped.")
     options = api._options(request)
-    adapter = state.settings.adapter
+    adapter, cfg = state.settings.adapter, api.prefs_of(request).analysis
 
     def job(ctx):
         try:
@@ -142,7 +159,7 @@ async def ui_upload(request: Request) -> HTMLResponse:
             if entry_id is None or not imported["accepted"]:
                 return imported if entry_id is None else {"import": imported, "recompute": None}
             return {"import": imported,
-                    "recompute": api.run_recompute(ctx, entry_id, adapter)}  # fmt: skip
+                    "recompute": api.run_recompute(ctx, entry_id, adapter, cfg)}  # fmt: skip
         finally:
             shutil.rmtree(folder, ignore_errors=True)
 
@@ -219,9 +236,14 @@ def entry_page(entry_id: int, request: Request, tab: str = "overview") -> HTMLRe
     outdated = vdir is not None and not (vdir / "patterns.json").exists()
     brief = _brief(request, entry_id)
     fresh_brief = brief is not None and not brief["stale"]
+    built_with = snapshot["entry"].get("config_hash") if snapshot else None
+    config_changed = (
+        built_with is not None and built_with != api.prefs_of(request).analysis.digest()
+    )
     return _page(request, "entry.html", **(tab_ctx | {"entry": entry, "tab": tab,
                  "snapshot": snapshot, "buys": BUYS, "tab_template": tab_template,
-                 "outdated": outdated, "fresh_brief": fresh_brief}))  # fmt: skip
+                 "outdated": outdated, "config_changed": config_changed,
+                 "fresh_brief": fresh_brief}))  # fmt: skip
 
 
 @router.get("/ui/entries/{entry_id}/tab/{tab}", response_class=HTMLResponse)
@@ -445,8 +467,10 @@ def ui_export(entry_id: int, request: Request) -> Response:
     from cs2scout.web.export_view import ExportLeak, render
 
     sections = request.query_params.getlist("sections")
+    q = request.query_params
+    maps = "maps" in q if "opts" in q else True  # an unticked box sends nothing
     try:
-        name, html = render(request, entry_id, sections, _filter(request))
+        name, html = render(request, entry_id, sections, _filter(request), maps=maps)
     except (ApiError, ExportLeak) as exc:
         return _error(request, getattr(exc, "message", str(exc)))
     return Response(html, media_type="text/html; charset=utf-8",
@@ -486,3 +510,51 @@ async def ui_brief_send(entry_id: int, request: Request) -> Response:
     except ApiError as exc:
         return _page(request, "_ai_failed.html", message=exc.message, code=exc.code)
     return _redirect(f"/entries/{entry_id}?tab=brief")
+
+
+# ---------------------------------------------------------------- settings (WU-16)
+
+
+def _settings_page(request: Request, name: str, **extra) -> HTMLResponse:
+    home = request.app.state.settings.home
+    return _page(request, name, s=api.settings_json(request), home=home, **extra)
+
+
+@router.get("/settings", response_class=HTMLResponse)
+def settings_page(request: Request) -> HTMLResponse:
+    return _settings_page(request, "settings.html")
+
+
+def _number(form, name: str, kind=int):
+    text = str(form.get(name, "")).strip()
+    return kind(text) if text else None
+
+
+@router.post("/ui/settings", response_class=HTMLResponse)
+async def ui_settings(request: Request) -> HTMLResponse:
+    form = await request.form()
+    try:
+        share = _number(form, "min_support_share_pct", float)
+        points = [int(p) for p in re.split(r"[\s,;]+", str(form.get("checkpoints_s", ""))) if p]
+        body = api.SettingsBody(
+            analysis=api.AnalysisSettings(
+                eco_max=_number(form, "eco_max"), force_max=_number(form, "force_max"),
+                min_support_rounds=_number(form, "min_support_rounds"),
+                min_support_share=None if share is None else share / 100,
+                min_support_demos=_number(form, "min_support_demos"),
+                low_sample_rounds=_number(form, "low_sample_rounds"), checkpoints_s=points,
+            ),
+            retain_sources="retain_sources" in form,
+            workspace_cap_gb=_number(form, "workspace_cap_gb", float),
+            port=_number(form, "port"),
+        )  # fmt: skip
+        api.put_settings(body, request)
+    except ApiError as exc:
+        return _settings_page(request, "_settings.html", error=exc.message)
+    except ValidationError as exc:
+        first = exc.errors()[0]
+        where = " ".join(str(p) for p in first["loc"] if p != "analysis").replace("_", " ")
+        return _settings_page(request, "_settings.html", error=f"{where}: {first['msg']}.")
+    except ValueError:
+        return _settings_page(request, "_settings.html", error="Use whole numbers.")
+    return _settings_page(request, "_settings.html", notice="Saved.")

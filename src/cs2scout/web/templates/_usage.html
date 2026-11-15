@@ -1,0 +1,12 @@
+{% set u = s.usage %}
+<table class="usage"><caption>Disk use</caption>
+  <tbody>
+    <tr><th>Retained demos</th><td class="num">{{ u.areas.demos | size }}</td></tr>
+    <tr><th>Parsed data</th><td class="num">{{ u.areas.extracts | size }}</td></tr>
+    <tr><th>Analyses</th><td class="num">{{ u.areas.entries | size }}</td></tr>
+    <tr><th>Other (library, map images, logs)</th><td class="num">{{ u.areas.other | size }}</td></tr>
+    <tr><th>Total</th><td class="num"><strong>{{ u.total_bytes | size }}</strong>{% if u.cap_bytes %} of {{ u.cap_bytes | size }}{% endif %}</td></tr>
+    <tr><th>Free on this drive</th><td class="num">{{ u.free_bytes | size }}</td></tr>
+  </tbody></table>
+<p class="muted">Workspace folder: <code class="path">{{ home }}</code>. To back it up, stop the app and copy this folder.</p>
+{% if u.over_cap %}<p><span class="chip warn">over the limit</span> The workspace is larger than the limit you set. Retained demo copies are usually the largest part: turning them off saves space on new imports.</p>{% endif %}

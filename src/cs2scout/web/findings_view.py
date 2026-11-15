@@ -36,12 +36,18 @@ def _filtered(version_dir: Path, _stamp: tuple[int, int], flt: RoundFilter) -> d
     players = pl.read_parquet(version_dir / "player_rounds.parquet")
     roster = json.loads((version_dir / "players.json").read_text(encoding="utf-8"))
     used = [d["label"] for d in snapshot["demos"] if d["used"]]
-    # Same config the version was built with (Q1-Q3 settings arrive in WU-16).
+    # The same thresholds the version was built with, not today's settings.
+    config_file = version_dir / "config.json"
+    cfg = (
+        AnalysisConfig.from_dict(json.loads(config_file.read_text(encoding="utf-8")))
+        if config_file.exists()
+        else AnalysisConfig()
+    )
     patterns_file = version_dir / "patterns.json"
     patterns = (
         json.loads(patterns_file.read_text(encoding="utf-8")) if patterns_file.exists() else []
     )
-    findings = all_findings(rounds, players, roster, patterns, AnalysisConfig(), used[-3:])
+    findings = all_findings(rounds, players, roster, patterns, cfg, used[-3:])
     return snapshot | {
         "round_index": round_index_json(rounds),
         "findings": findings,

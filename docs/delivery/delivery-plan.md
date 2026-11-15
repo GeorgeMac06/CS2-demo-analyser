@@ -52,7 +52,13 @@
 <br>• The brief is stored with its analysis version and is marked stale when the analysis changes. Only a brief that is not stale goes into the export, labelled "AI-generated".
 <br>• SDK errors (bad key, rate limit, overload, network, refusal, truncation) → `AI_UPSTREAM` with a clear message. The entry is untouched.
 <br>• Live check against the real API (P-3, G-manual) not run yet: it needs the owner's key.
-<br>**Next:** WU-16 (settings, docs, final journey). P-6 (radar image licence) is still open before any export is shared.|
+<br>**WU-16 done** (2026-11-15). A Settings page (top bar) saves the Q1–Q3 thresholds, source retention, a workspace size limit (warning only) and the port in `<workspace>/settings.json`. It also shows disk use per area and free space; the library page shows a one-line summary.
+<br>• Every recompute uses the saved thresholds. Each version records the thresholds it was built with (`config.json`), so filtered views recount with the same ones. An analysis built with other thresholds offers "Update now".
+<br>• Retention applies to new imports. The saved port is used at the next start, and `CS2SCOUT_PORT` still wins.
+<br>• The README covers install, run, use, settings, the AI brief, privacy, backup, and sharing exports.
+<br>• **P-6 recorded:** the awpy code is MIT. Neither the awpy README nor its documentation states terms for the radar images, which are derived from CS2 game files (checked 2026-11-15). Whether to share them is the owner's call. The Export menu now has **include map images**: unticked, figures render on a blank map, so an export can always be shared without them.
+<br>• Known gap, not in v1 scope: deleting an analysis leaves its parsed data and retained demo copies in place. There is no cleanup command; the README says so.
+<br>**M3: waiting on the owner.** All automated gates pass. The owner's J1–J5 run-through on their own demos is still to do; J5 needs their API key (P-3).|
 | Outcome | The owner can import N demos of one team on one map. They can explore team and player patterns with support counts, and export a brief for teammates. The AI summary is optional. |
 
 **What this plan covers:**

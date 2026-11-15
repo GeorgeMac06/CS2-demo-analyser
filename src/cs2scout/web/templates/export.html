@@ -29,7 +29,7 @@
     {{ s.html | safe }}
   </section>
   {% endfor %}
-  <p class="muted">Contains player nicknames and match statistics only; no account IDs. Map images: awpy-data.</p>
+  <p class="muted">Contains player nicknames and match statistics only; no account IDs.{% if maps %} Map images: awpy-data (from CS2 game files).{% endif %}</p>
 </main>
 <script type="application/json" id="radars">{{ radars | safe }}</script>
 <script>{{ script | safe }}</script>

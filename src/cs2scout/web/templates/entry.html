@@ -19,6 +19,8 @@
         <label><input type="checkbox" name="sections" value="{{ key }}" checked> {{ label }}</label>{% endfor %}
         {% if fresh_brief %}<label><input type="checkbox" name="sections" value="brief" checked> AI brief</label>{% endif %}
         <p><label><input type="checkbox" name="use_filters"> apply the current filters</label></p>
+        <input type="hidden" name="opts" value="1">
+        <p><label><input type="checkbox" name="maps" checked> include map images</label></p>
         <button type="submit">Download brief</button>
       </form>
     </details>
@@ -36,9 +38,10 @@
   </div>
 </div>
 <div id="notice"></div>
-{% if outdated %}
-<div class="card" id="outdated"><strong>This analysis was built by an older version of the app.</strong>
-  Pattern tabs stay empty until it is updated. Updating uses the stored data; nothing is parsed again.
+{% if outdated or config_changed %}
+<div class="card" id="outdated">{% if outdated %}<strong>This analysis was built by an older version of the app.</strong>
+  Pattern tabs stay empty until it is updated.{% else %}<strong>The thresholds in Settings have changed since this analysis was built.</strong>
+  Update it to apply them.{% endif %} Updating uses the stored data; nothing is parsed again.
   <p><button hx-post="/ui/entries/{{ entry.id }}/recompute" hx-target="#outdated" hx-swap="innerHTML">Update now</button></p></div>
 {% endif %}
 {% if snapshot and snapshot.problems %}

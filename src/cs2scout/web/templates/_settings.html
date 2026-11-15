@@ -1,0 +1,38 @@
+{% set a = s.analysis %}
+<div id="settings">
+{% if notice %}<div class="card" role="status">{{ notice }}</div>{% endif %}
+{% if error %}<div class="card error" role="alert"><strong>Not saved.</strong> {{ error }}</div>{% endif %}
+<form hx-post="/ui/settings" hx-target="#settings" hx-swap="outerHTML" aria-label="Settings">
+  <section class="card"><h2>Buy classes</h2>
+    <p class="muted">From the team's total equipment value when freeze time ends. Pistol rounds are classified by round number.</p>
+    <div class="row">
+      <label>Eco up to $ <input type="number" name="eco_max" value="{{ a.eco_max }}" min="0" max="60000" step="100" required></label>
+      <label>Force buy up to $ <input type="number" name="force_max" value="{{ a.force_max }}" min="0" max="60000" step="100" required></label>
+      <span class="muted">Above that: full buy.</span>
+    </div></section>
+  <section class="card"><h2>When a pattern counts</h2>
+    <p class="muted">A team pattern is listed when it meets all three. Per-player measures need only the round count.</p>
+    <div class="row">
+      <label>At least <input type="number" name="min_support_rounds" value="{{ a.min_support_rounds }}" min="1" max="100" required> rounds</label>
+      <label>and <input type="number" name="min_support_share_pct" value="{{ (a.min_support_share * 100) | round(1) }}" min="0" max="100" step="0.5" required> % of eligible rounds</label>
+      <label>in at least <input type="number" name="min_support_demos" value="{{ a.min_support_demos }}" min="1" max="50" required> demos</label>
+    </div>
+    <p><label>Mark numbers as "low sample" below <input type="number" name="low_sample_rounds" value="{{ a.low_sample_rounds }}" min="1" max="200" required> rounds</label></p></section>
+  <section class="card"><h2>T setup checkpoints</h2>
+    <label>Seconds after freeze time ends <input name="checkpoints_s" value="{{ a.checkpoints_s | join(', ') }}" required aria-describedby="cp-help"></label>
+    <p class="muted" id="cp-help">Where the T side's positions are read, for example 15, 30, 45.</p></section>
+  <p class="muted">Changed thresholds apply to an analysis when it is next updated. An analysis built with other thresholds offers "Update now" at the top of its page.</p>
+  <section class="card"><h2>Storage</h2>
+    <p><label><input type="checkbox" name="retain_sources" {% if s.retain_sources %}checked{% endif %}> Keep a compressed copy of each imported demo</label></p>
+    <p class="muted">The copy lets the app re-read demos after a parser upgrade, at about 150–260 MB per demo. Turning this off affects new imports only; copies already kept stay.</p>
+    <p><label>Warn when the workspace is over <input type="number" name="workspace_cap_gb" value="{{ s.workspace_cap_gb | int if s.workspace_cap_gb else '' }}" min="1" step="1" placeholder="no limit"> GB</label></p>
+    {% include "_usage.html" %}</section>
+  <section class="card"><h2>Server</h2>
+    <label>Port <input type="number" name="port" value="{{ s.port or '' }}" min="1024" max="65535" placeholder="8765"></label>
+    <p class="muted">Running on 127.0.0.1:{{ s.effective_port }}, never on the network. A new port applies after a restart. The <code>CS2SCOUT_PORT</code> variable overrides it.</p></section>
+  <section class="card"><h2>AI brief</h2>
+    {% if s.ai.enabled %}<p><span class="chip ok">on</span> Model {{ s.ai.model }}. Change it with <code>CS2SCOUT_AI_MODEL</code>.</p>
+    {% else %}<p><span class="chip">off</span> Put <code>ANTHROPIC_API_KEY=...</code> in a <code>.env</code> file in the workspace folder, then restart.</p>{% endif %}</section>
+  <button type="submit">Save settings</button>
+</form>
+</div>

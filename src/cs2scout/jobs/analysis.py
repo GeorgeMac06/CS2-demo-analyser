@@ -11,7 +11,7 @@ import hashlib
 import json
 import shutil
 import uuid
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -191,6 +191,8 @@ def run_recompute(ctx: JobContext, entry_id: int, adapter: str,
         ctx.check_cancel()
         # Local only (never exported): lets filtered views rebuild findings per player key.
         (vdir / "players.json").write_text(json.dumps(roster), encoding="utf-8")
+        # The thresholds this version was built with: filtered views recount with the same.
+        (vdir / "config.json").write_text(json.dumps(asdict(cfg)), encoding="utf-8")
         (vdir / "findings.json").write_text(json.dumps(snapshot, indent=1, sort_keys=True),
                                             encoding="utf-8")  # fmt: skip
         # User labels follow their patterns when new demos reshape them (T-11).

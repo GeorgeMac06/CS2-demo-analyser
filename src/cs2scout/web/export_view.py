@@ -58,8 +58,8 @@ def _heat_gallery(request: Request, entry_id: int, snapshot: dict) -> list[dict]
     return out
 
 
-def render(request: Request, entry_id: int, sections: list[str], flt: RoundFilter
-           ) -> tuple[str, str]:  # fmt: skip
+def render(request: Request, entry_id: int, sections: list[str], flt: RoundFilter,
+           maps: bool = True) -> tuple[str, str]:  # fmt: skip
     """(filename, html). Raises ExportLeak rather than ever writing personal data out."""
     entry = api.get_entry(entry_id, request)
     snapshot = pages._snapshot(request, entry_id, flt)
@@ -83,7 +83,8 @@ def render(request: Request, entry_id: int, sections: list[str], flt: RoundFilte
 
     home = request.app.state.settings.home
     radars = {}
-    if snapshot.get("radar"):
+    # Without map images (P-6) the heatmaps and lineups keep their axes, on a blank map.
+    if maps and snapshot.get("radar"):
         name = snapshot["radar"]["map"]
         for lower in (False, True):
             path = assets.radar_path(home, name, lower=lower)
@@ -93,7 +94,7 @@ def render(request: Request, entry_id: int, sections: list[str], flt: RoundFilte
     active = api.active_filter(flt)
     page = pages.templates.get_template("export.html").render(
         csp=CSP, entry=entry, snapshot=snapshot, sections=rendered, demos=used,
-        filter=active, version=__version__, radars=json.dumps(radars),
+        filter=active, version=__version__, radars=json.dumps(radars), maps=bool(radars),
         generated=datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
         css=(STATIC / "app.css").read_text(encoding="utf-8"),
         plotly=(STATIC / "vendor" / "plotly-4.2.0.min.js").read_text(encoding="utf-8")

@@ -438,6 +438,12 @@ The thresholds below come from `AnalysisConfig`. The defaults are Q2 and Q3 from
   - `/api/health`.
   - No telemetry leaves the PC.
 - **Backup:** copy the workspace folder while the app is stopped. This is documented in the README. Disk usage is shown in the UI, and the workspace cap (default: warn only) can be configured.
+- **As built (WU-16):**
+  - Settings are saved in `<workspace>/settings.json` (`store/prefs.py`): the Q1–Q3 thresholds, `retain_sources`, `workspace_cap_gb` and `port`. An unreadable file means defaults.
+  - Recomputes use the saved thresholds. Each version folder records its `config.json`, which `findings_view` uses for filtered recounts. An analysis whose `config_hash` differs from the saved thresholds offers "Update now".
+  - Disk use (`store/workspace.usage`) is shown on the Settings and library pages.
+  - Exports take `maps: false` to leave the radar images out (U-6 / P-6).
+  - Garbage collection of unused extracts and sources is not built.
 - **Burden:** one owner. There are no services, daemons or scheduled tasks to keep running.
 
 ## 8. Security model

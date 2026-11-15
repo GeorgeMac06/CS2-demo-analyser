@@ -5,6 +5,7 @@ SteamIDs travel as strings: they exceed JavaScript's safe integer range.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import sqlite3
 import time
@@ -24,6 +25,8 @@ from cs2scout.core.labels import apply as apply_labels
 from cs2scout.jobs.analysis import run_recompute
 from cs2scout.jobs.import_job import ImportOptions, run_import
 from cs2scout.jobs.runner import JobConflict, JobContext
+from cs2scout.store import prefs
+from cs2scout.store.workspace import usage
 from cs2scout.web.errors import ApiError, not_found
 from cs2scout.web.findings_view import filtered_snapshot
 
@@ -39,9 +42,15 @@ def _state(request: Request):
     return request.app.state
 
 
+def prefs_of(request: Request) -> prefs.Prefs:
+    """The Analyst's saved settings (read per request: they can change while running)."""
+    return prefs.load(_state(request).settings.home)
+
+
 def _options(request: Request) -> ImportOptions:
     s = _state(request).settings
-    return ImportOptions(adapter=s.adapter, retain_sources=s.retain_sources,
+    retain = s.retain_sources and prefs_of(request).retain_sources
+    return ImportOptions(adapter=s.adapter, retain_sources=retain,
                          limits=s.archive_limits, parse_timeout_s=s.parse_timeout_s)  # fmt: skip
 
 
@@ -60,8 +69,8 @@ def _entry(request: Request, entry_id: int):
 
 
 def _recompute_job(request: Request, entry_id: int) -> str:
-    adapter = _state(request).settings.adapter
-    return _submit(request, "recompute", lambda ctx: run_recompute(ctx, entry_id, adapter),
+    adapter, cfg = _state(request).settings.adapter, prefs_of(request).analysis
+    return _submit(request, "recompute", lambda ctx: run_recompute(ctx, entry_id, adapter, cfg),
                    entry_id)  # fmt: skip
 
 
@@ -229,12 +238,13 @@ def add_demos(entry_id: int, body: AddDemos, request: Request) -> dict:
     """J2: import into the entry, then recompute in the same job."""
     _entry(request, entry_id)
     options, adapter = _options(request), _state(request).settings.adapter
+    cfg = prefs_of(request).analysis
 
     def job(ctx: JobContext) -> dict:
         imported = run_import(ctx, body.paths, options, entry_id=entry_id)
         if not imported["accepted"]:
             return {"import": imported, "recompute": None}
-        return {"import": imported, "recompute": run_recompute(ctx, entry_id, adapter)}
+        return {"import": imported, "recompute": run_recompute(ctx, entry_id, adapter, cfg)}
 
     return {"job_id": _submit(request, "add_demos", job, entry_id)}
 
@@ -373,6 +383,7 @@ def active_filter(flt: RoundFilter) -> dict:
 
 class ExportRequest(FilterBody):
     sections: list[Literal["overview", "t", "ct", "utility", "players", "brief"]] = []
+    maps: bool = True  # False: leave the radar images out (P-6)
 
 
 @router.post("/entries/{entry_id}/export")
@@ -383,7 +394,8 @@ def export_entry(entry_id: int, body: ExportRequest, request: Request):
     from cs2scout.web.export_view import ExportLeak, render
 
     try:
-        name, html = render(request, entry_id, list(body.sections), body.round_filter())
+        name, html = render(request, entry_id, list(body.sections), body.round_filter(),
+                            maps=body.maps)  # fmt: skip
     except ExportLeak as exc:
         raise ApiError(500, ErrorCode.EXPORT_BLOCKED, str(exc)) from exc
     return Response(html, media_type="text/html; charset=utf-8",
@@ -487,3 +499,60 @@ def get_brief(entry_id: int, request: Request) -> dict:
     if brief is None:
         raise not_found("AI brief")
     return brief
+
+
+# ---------------------------------------------------------------- settings (WU-16)
+
+
+class AnalysisSettings(BaseModel):
+    """Q1-Q3. Bounds keep the analysis meaningful; the defaults are in core.config."""
+
+    eco_max: int = Field(ge=0, le=60000)
+    force_max: int = Field(ge=0, le=60000)
+    min_support_rounds: int = Field(ge=1, le=100)
+    min_support_share: float = Field(ge=0, le=1)
+    min_support_demos: int = Field(ge=1, le=50)
+    low_sample_rounds: int = Field(ge=1, le=200)
+    checkpoints_s: list[int] = Field(min_length=1, max_length=6)
+
+
+class SettingsBody(BaseModel):
+    analysis: AnalysisSettings
+    retain_sources: bool = True
+    workspace_cap_gb: float | None = Field(default=None, gt=0, le=100000)
+    port: int | None = Field(default=None, ge=1024, le=65535)
+
+
+def settings_json(request: Request) -> dict:
+    saved = prefs_of(request)
+    s = _state(request).settings
+    return saved.to_json() | {
+        "effective_port": s.port, "analysis_digest": saved.analysis.digest(),
+        "ai": {"enabled": bool(s.anthropic_api_key), "model": s.ai_model},
+        "usage": usage(s.home, saved.workspace_cap_gb),
+    }  # fmt: skip
+
+
+@router.get("/settings")
+def get_settings(request: Request) -> dict:
+    return settings_json(request)
+
+
+@router.put("/settings")
+def put_settings(body: SettingsBody, request: Request) -> dict:
+    """Saved now. Thresholds apply when an analysis is next updated; the port at restart."""
+    a = body.analysis
+    if a.force_max <= a.eco_max:
+        raise ApiError(422, ErrorCode.INVALID_REQUEST, "The force-buy limit must be above the "
+                       "eco limit.")  # fmt: skip
+    points = a.checkpoints_s
+    if any(not 1 <= t <= 115 for t in points) or points != sorted(set(points)):
+        raise ApiError(422, ErrorCode.INVALID_REQUEST, "Checkpoints must be increasing times "
+                       "between 1 and 115 seconds.")  # fmt: skip
+    current = prefs_of(request)
+    values = a.model_dump() | {"checkpoints_s": tuple(points)}
+    saved = prefs.Prefs(analysis=dataclasses.replace(current.analysis, **values),
+                        retain_sources=body.retain_sources,
+                        workspace_cap_gb=body.workspace_cap_gb, port=body.port)  # fmt: skip
+    prefs.save(_state(request).settings.home, saved)
+    return settings_json(request)
