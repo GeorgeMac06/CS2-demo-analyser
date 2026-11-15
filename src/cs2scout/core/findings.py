@@ -12,6 +12,7 @@ from dataclasses import dataclass
 import polars as pl
 
 from cs2scout.core.config import AnalysisConfig
+from cs2scout.core.patterns import recount
 from cs2scout.core.rounds import BUYS
 
 SCHEMA_VERSION = 1
@@ -163,8 +164,31 @@ def build_findings(rounds: pl.DataFrame, players: pl.DataFrame, roster: list[dic
     return sorted(findings, key=lambda f: f["id"])
 
 
-ROUND_INDEX_FIELDS = ("ref", "demo_label", "round_num", "side", "buy", "opp_buy", "score_us",
-                      "score_them", "won", "end_reason", "played_at", "is_ot")  # fmt: skip
+def all_findings(
+    rounds: pl.DataFrame,
+    players: pl.DataFrame,
+    roster: list[dict],
+    patterns: list[dict],
+    cfg: AnalysisConfig,
+    recent_labels: list[str],
+) -> list[dict]:
+    """Stats rebuilt for ``rounds`` plus mined patterns recounted for them (one code path for
+    the snapshot and every filtered view, so they cannot disagree)."""
+    keys = {m["steamid"]: m["player_key"] for m in roster}
+    in_view = players.filter(pl.col("ref").is_in(rounds["ref"].implode()))
+    player_refs: dict[str, set[str]] = {}
+    for steamid, ref in in_view.select("steamid", "ref").iter_rows():
+        if steamid in keys:
+            player_refs.setdefault(keys[steamid], set()).add(ref)
+    stats = build_findings(rounds, players, roster, cfg, recent_labels)
+    mined = recount(patterns, rounds, player_refs, cfg, recent_labels)
+    return sorted(stats + mined, key=lambda f: f["id"])
+
+
+ROUND_INDEX_FIELDS = (
+    "ref", "demo_label", "round_num", "side", "buy", "opp_buy", "score_us", "score_them",
+    "won", "end_reason", "played_at", "is_ot", "planted",
+)  # fmt: skip
 
 
 def round_index_json(rounds: pl.DataFrame) -> list[dict]:

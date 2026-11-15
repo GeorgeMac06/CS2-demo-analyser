@@ -20,9 +20,10 @@ import polars as pl
 from cs2scout.core.config import AnalysisConfig
 from cs2scout.core.errors import ErrorCode
 from cs2scout.core.features import assign_rounds, player_rounds
-from cs2scout.core.findings import SCHEMA_VERSION, build_findings, round_index_json
+from cs2scout.core.findings import SCHEMA_VERSION, all_findings, round_index_json
 from cs2scout.core.grids import POSITION_COLUMNS, build_grids, live_positions, project
 from cs2scout.core.maps import Radar
+from cs2scout.core.patterns_t import mine_t, t_rounds
 from cs2scout.core.rounds import is_complete, lineup_score, match_result, team_rounds
 from cs2scout.core.schema import EXTRACT_SCHEMA
 from cs2scout.core.team import DemoLineups, assign_lineups, demo_lineups, propose_roster
@@ -165,7 +166,7 @@ def run_recompute(ctx: JobContext, entry_id: int, adapter: str,
     try:
         info = radar_info(lib.home, entry.map)  # None: no assets -> stats-only visuals
         radar = Radar.from_info(info) if info else None
-        snapshot = _analyse(ctx, demos, scouted, roster, excluded, cfg, vdir, radar)
+        snapshot = _analyse(ctx, demos, scouted, roster, excluded, cfg, vdir, radar, entry.map)
         snapshot["radar"] = info
         snapshot |= {
             "schema_version": SCHEMA_VERSION,
@@ -200,8 +201,9 @@ def _input_hash(demos, overrides, roster_rows, parser, cfg) -> str:
 
 def _analyse(ctx: JobContext, demos: list[LoadedDemo], scouted: dict, roster: list[dict],
              excluded: set[int], cfg: AnalysisConfig, vdir: Path,
-             radar: Radar | None) -> dict:  # fmt: skip
+             radar: Radar | None, map_name: str) -> dict:  # fmt: skip
     rounds_parts, player_parts, position_parts, summaries = [], [], [], []
+    t_obs = []
     for i, d in enumerate(demos):
         ctx.check_cancel()
         ctx.progress(phase="analysing", done=i, total=len(demos))
@@ -217,12 +219,14 @@ def _analyse(ctx: JobContext, demos: list[LoadedDemo], scouted: dict, roster: li
         summaries.append(summary | {"score": f"{result['us']}-{result['them']}",
                                     "complete": result["complete"]})  # fmt: skip
         members = set(d.lineups.members[lineup]) - excluded
-        rounds_parts.append(rounds)
-        player_parts.append(player_rounds(d.tables, rounds, members))
         windows = rounds.sort("start_tick").with_columns(
             window_end=pl.col("start_tick").shift(-1).fill_null(2**31 - 1)
         )
         plants = assign_rounds(d.tables["bomb"].filter(pl.col("event") == "finish_plant"), windows)
+        rounds = rounds.with_columns(planted=pl.col("ref").is_in(plants["ref"].implode()))
+        rounds_parts.append(rounds)
+        player_parts.append(player_rounds(d.tables, rounds, members))
+        t_obs.extend(t_rounds(d.tables, rounds, members, map_name, d.tick_rate, cfg))
         position_parts.append(live_positions(
             d.tables["snapshots"].filter(pl.col("steamid").is_in(list(members))), rounds,
             plants.group_by("ref").agg(pl.col("tick").min()), cfg, d.tick_rate,
@@ -233,7 +237,9 @@ def _analyse(ctx: JobContext, demos: list[LoadedDemo], scouted: dict, roster: li
     round_index: list[dict] = []
     if rounds_parts:
         rounds, players = pl.concat(rounds_parts), pl.concat(player_parts)
-        findings = build_findings(rounds, players, roster, cfg, recent_labels=used[-3:])
+        patterns = mine_t(t_obs, cfg)
+        (vdir / "patterns.json").write_text(json.dumps(patterns, sort_keys=True), encoding="utf-8")
+        findings = all_findings(rounds, players, roster, patterns, cfg, recent_labels=used[-3:])
         round_index = round_index_json(rounds)
         rounds.write_parquet(vdir / "rounds.parquet")
         players.write_parquet(vdir / "player_rounds.parquet")

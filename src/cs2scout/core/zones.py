@@ -19,6 +19,13 @@ class Zone:
     site: str | None = None  # "A" / "B" when the place is part of a bombsite or its approach
     lane: str | None = None  # a coarser group, e.g. "A ramp", "mid", "B apartments"
 
+    @property
+    def on_site(self) -> str | None:
+        """ "A"/"B" only when standing on the bombsite itself (not just on its approach)."""
+        if self.lane in ("A site", "B site") or self.name in ("BombsiteA", "BombsiteB"):
+            return self.site
+        return None
+
 
 class ZoneProvider(Protocol):
     version: str
