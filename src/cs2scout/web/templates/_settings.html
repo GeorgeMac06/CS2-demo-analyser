@@ -20,7 +20,7 @@
     <p><label>Mark numbers as "low sample" below <input type="number" name="low_sample_rounds" value="{{ a.low_sample_rounds }}" min="1" max="200" required> rounds</label></p></section>
   <section class="card"><h2>T setup checkpoints</h2>
     <label>Seconds after freeze time ends <input name="checkpoints_s" value="{{ a.checkpoints_s | join(', ') }}" required aria-describedby="cp-help"></label>
-    <p class="muted" id="cp-help">Where the T side's positions are read, for example 15, 30, 45.</p></section>
+    <p class="muted" id="cp-help">Where positions are read, for example 15, 30, 45 (on the round timer: {% for t in a.checkpoints_s %}{{ t | clock }}{% if not loop.last %}, {% endif %}{% endfor %}).</p></section>
   <p class="muted">Changed thresholds apply to an analysis when it is next updated. An analysis built with other thresholds offers "Update now" at the top of its page.</p>
   <section class="card"><h2>Storage</h2>
     <p><label><input type="checkbox" name="retain_sources" {% if s.retain_sources %}checked{% endif %}> Keep a compressed copy of each imported demo</label></p>

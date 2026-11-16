@@ -136,7 +136,7 @@ def test_stats_match_what_happened(shared) -> None:
     assert total_kills == our_round_wins + total_rounds
     assert {d["score"] for d in snap["demos"]} == {"13-9", "16-14", "13-5"}
     assert snap["grids"] and all(g["extent"] for g in snap["grids"].values())
-    assert snap["schema_version"] == 1 and snap["entry"]["version"] == 1
+    assert snap["schema_version"] == 2 and snap["entry"]["version"] == 1
 
 
 def test_recompute_is_deterministic(api: Api, entry: int) -> None:

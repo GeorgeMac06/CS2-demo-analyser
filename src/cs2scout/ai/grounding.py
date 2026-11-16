@@ -1,18 +1,22 @@
 """The brief's answer shape and the grounding check (FR-AI-3, design §6.5).
 
-Claude answers in sections of claims, and every claim cites the finding IDs it rests on.
-A claim with no citation, or citing an ID that was not in the payload, is dropped. If more
-than 20% of claims are dropped, the whole brief is rejected (AI_UNGROUNDED).
+Claude answers in sections of claims. Every claim cites what it rests on: finding IDs, round
+IDs (from the round stories), or both. A claim that cites nothing, or cites an ID that was
+not in the payload, is dropped. If more than 20% of claims are dropped, the whole brief is
+rejected (AI_UNGROUNDED).
 """
 
 from __future__ import annotations
 
 MAX_DROPPED_SHARE = 0.20
+# Sections in the order the brief shows them (owner feedback 2026-11-16: tendencies first,
+# pistol rounds on their own, rounds worth watching).
 SECTIONS = {
-    "t_side": "T side",
-    "ct_side": "CT side",
-    "utility": "Utility",
+    "t_side": "T side: how they hit",
+    "pistols": "Pistol rounds",
+    "ct_side": "CT side: setups and reactions",
     "players": "Players",
+    "watch": "Rounds to watch",
     "counters": "Suggested counters",
 }
 
@@ -32,8 +36,9 @@ SCHEMA = {
                             "properties": {
                                 "text": {"type": "string"},
                                 "finding_ids": {"type": "array", "items": {"type": "string"}},
+                                "rounds": {"type": "array", "items": {"type": "string"}},
                             },
-                            "required": ["text", "finding_ids"],
+                            "required": ["text", "finding_ids", "rounds"],
                             "additionalProperties": False,
                         },
                     },
@@ -52,9 +57,13 @@ class Ungrounded(ValueError):
     pass
 
 
-def ground(answer: dict, findings: list[dict]) -> dict:
-    """The brief to store: kept claims, each with its cited findings' titles and support."""
+def ground(answer: dict, findings: list[dict], rounds: dict[str, dict] | None = None) -> dict:
+    """The brief to store: kept claims with their cited findings (title, k/n) and rounds.
+
+    ``rounds`` maps a round ID to what the app shows for it (demo, round, side, tick...).
+    """
     known = {f["id"]: f for f in findings}
+    rounds = rounds or {}
     total = dropped = 0
     sections = []
     for section in answer.get("sections") or []:
@@ -63,10 +72,13 @@ def ground(answer: dict, findings: list[dict]) -> dict:
             total += 1
             text = str(claim.get("text") or "").strip()
             ids = list(dict.fromkeys(str(i) for i in claim.get("finding_ids") or []))
-            if not text or not ids or any(i not in known for i in ids):
+            refs = list(dict.fromkeys(str(r) for r in claim.get("rounds") or []))
+            unknown = [i for i in ids if i not in known] + [r for r in refs if r not in rounds]
+            if not text or not (ids or refs) or unknown:
                 dropped += 1
                 continue
-            kept.append({"text": text, "cites": [_cite(known[i]) for i in ids]})
+            kept.append({"text": text, "cites": [_cite(known[i]) for i in ids],
+                         "rounds": [rounds[r] | {"ref": r} for r in refs]})  # fmt: skip
         sid = str(section.get("id"))
         if kept and sid in SECTIONS:
             sections.append({"id": sid, "title": SECTIONS[sid], "claims": kept})
@@ -76,7 +88,7 @@ def ground(answer: dict, findings: list[dict]) -> dict:
         raise Ungrounded("Claude returned no claims.")
     if dropped / total > MAX_DROPPED_SHARE:
         raise Ungrounded(
-            f"{dropped} of {total} claims did not cite findings from this analysis, so the "
+            f"{dropped} of {total} claims did not cite evidence from this analysis, so the "
             "brief was not saved. Try again."
         )
     order = list(SECTIONS)

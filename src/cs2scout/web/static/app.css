@@ -72,3 +72,6 @@ pre.payload { max-height: 360px; overflow: auto; font-size: 12px; white-space: p
 ul.claims li { margin-bottom: 10px; } ul.claims .chip { margin-top: 3px; }
 table.usage { max-width: 520px; } table.usage th { text-align: left; font-weight: normal; }
 .path { overflow-wrap: anywhere; }
+pre.story { white-space: pre-wrap; font-size: 12px; margin: 4px 0; }
+tr.story td { border-top: none; padding-top: 0; }
+.chip.round code { font-size: 11px; }

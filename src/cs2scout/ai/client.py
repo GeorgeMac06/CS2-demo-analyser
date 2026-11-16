@@ -7,6 +7,7 @@ passed in by the caller and never logged or echoed.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import anthropic
 
@@ -21,27 +22,14 @@ FALLBACK_BETA = "server-side-fallback-2026-07-01"
 FALLBACK_MODELS = frozenset({"claude-fable-5-2", "claude-fable-5-1", "claude-opus-5-5",
                              "claude-opus-5", "claude-sonnet-5-5"})  # fmt: skip
 
-INSTRUCTIONS = """\
-You write anti-strat briefs for a Counter-Strike 2 team that is preparing to play an \
-opponent. You receive aggregated statistics about that opponent on one map, mined from \
-their recent demos by a scouting tool.
+# List prices in USD per million tokens (input, output), for the cost shown after a brief.
+# An estimate: the Anthropic console has the real bill.
+PRICES = {"claude-opus-5-5": (4.0, 20.0), "claude-sonnet-5-5": (2.0, 10.0),
+          "claude-haiku-5-5": (0.10, 0.50), "claude-opus-5": (5.0, 25.0),
+          "claude-fable-5-2": (8.0, 40.0)}  # fmt: skip
 
-Group your claims into sections: t_side (how they play T side), ct_side (how they set up \
-and react on CT side), utility (notable grenade use), players (each player's tendencies \
-and likely role) and counters (ways to beat these tendencies). Leave out a section that \
-has nothing worth saying.
-
-Every claim cites, in finding_ids, the IDs of the findings it is based on, and says \
-nothing those findings do not show. Counters are suggestions: cite the findings each one \
-answers. Quote how often something happened as the data gives it ("6 of 41 CT rounds"). \
-A finding flagged low_sample rests on few rounds: present it as a hint. Refer to players \
-by name.
-
-Reading the data: support.k of support.n means seen in k of n eligible rounds, and \
-support.demos is how many demos it appears in. outcome.win_pct is the round win rate when \
-it happened. recency.share_last_3_demos is the share of occurrences in the three most \
-recent demos. Times are seconds into the round.\
-"""
+# The brief's instructions live in a text file, so they are easy to read and tune.
+INSTRUCTIONS = (Path(__file__).parent / "instructions.md").read_text(encoding="utf-8").strip()
 
 
 class Upstream(RuntimeError):
@@ -50,8 +38,7 @@ class Upstream(RuntimeError):
 
 def user_message(payload_text: str) -> str:
     return (
-        "Write the anti-strat brief from these findings.\n\n"
-        f"<findings>\n{payload_text}\n</findings>"
+        f"Write the anti-strat brief from this evidence.\n\n<evidence>\n{payload_text}\n</evidence>"
     )
 
 
@@ -61,8 +48,8 @@ def write_brief(
     api_key: str,
     model: str = DEFAULT_MODEL,
     http_client: anthropic.DefaultHttpxClient | None = None,
-) -> tuple[dict, str]:
-    """(answer, model that served it). Raises Upstream on any failure."""
+) -> tuple[dict, str, dict]:
+    """(answer, model that served it, token usage). Raises Upstream on any failure."""
     client = anthropic.Anthropic(api_key=api_key, timeout=TIMEOUT_S, http_client=http_client)
     params = {
         "model": model,
@@ -117,4 +104,14 @@ def write_brief(
         raise Upstream("Claude's answer was not valid JSON. Try again.") from exc
     if not isinstance(answer, dict):
         raise Upstream("Claude's answer had an unexpected shape. Try again.")
-    return answer, message.model
+    usage = {"input_tokens": message.usage.input_tokens,
+             "output_tokens": message.usage.output_tokens}  # fmt: skip
+    return answer, message.model, usage
+
+
+def cost_usd(model: str, usage: dict | None) -> float | None:
+    """The list-price cost of a call, or None for a model without a known price."""
+    price = PRICES.get(model)
+    if price is None or not usage:
+        return None
+    return (usage["input_tokens"] * price[0] + usage["output_tokens"] * price[1]) / 1e6

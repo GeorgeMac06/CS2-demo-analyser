@@ -169,6 +169,19 @@ FINDINGS = [{"id": f"ts.site.team.{i}", "title": f"Hits {i}", "support": {"k": i
             for i in range(10)]  # fmt: skip
 
 
+ROUNDS = {
+    "abcd1234:r5": {
+        "demo": "abcd1234",
+        "round": 5,
+        "side": "T",
+        "tick": 9000,
+        "file": "m0.dem",
+        "played_on": "2026-11-15",
+        "score": "13-3",
+    }
+}
+
+
 def claims(*ids_per_claim: list[str]) -> dict:
     found = [{"text": f"claim {n}", "finding_ids": ids} for n, ids in enumerate(ids_per_claim)]
     return {"sections": [{"id": "t_side", "claims": found}]}
@@ -176,7 +189,7 @@ def claims(*ids_per_claim: list[str]) -> dict:
 
 def test_grounding_drops_uncited_and_unknown_claims() -> None:
     good = [[f["id"]] for f in FINDINGS[:8]]
-    brief = ground(claims(*good, [], ["ts.site.team.0", "made.up.id"]), FINDINGS)
+    brief = ground(claims(*good, [], ["ts.site.team.0", "made.up.id"]), FINDINGS, ROUNDS)
     assert brief["claims"] == 10 and brief["dropped"] == 2  # 20%: still accepted
     kept = brief["sections"][0]["claims"]
     assert len(kept) == 8 and kept[0]["cites"] == [{"id": "ts.site.team.0", "title": "Hits 0",
@@ -201,7 +214,7 @@ def test_brief_is_saved_exported_and_goes_stale_after_a_demo_is_added(
 ) -> None:
     created = send(ai, entry, preview(ai, entry)["token"]).json()
     assert created["stale"] is False and created["dropped"] == 0
-    assert [s["id"] for s in created["sections"]] == ["t_side", "counters"]
+    assert [s["id"] for s in created["sections"]] == ["t_side", "pistols", "watch", "counters"]
     page = ai.get(f"/entries/{entry}?tab=brief").text
     assert "AI-generated" in page and created["sections"][0]["claims"][0]["text"] in page
     html = ai.post(f"/api/entries/{entry}/export", {}).text
@@ -228,6 +241,59 @@ def test_ui_flow_previews_then_sends(ai: Api, entry: int, claude: FakeClaude) ->
                           headers=ai.headers)  # fmt: skip
     assert sent.headers.get("HX-Redirect") == f"/entries/{entry}?tab=brief"
     assert len(claude.requests) == 1
+
+
+def test_claims_can_cite_rounds_and_get_watch_details() -> None:
+    answer = {"sections": [{"id": "watch", "claims": [
+        {"text": "Lurk through apps", "finding_ids": [], "rounds": ["abcd1234:r5"]},
+        {"text": "Made up round", "finding_ids": [], "rounds": ["abcd1234:r99"]},
+        {"text": "Both kinds", "finding_ids": ["ts.site.team.1"], "rounds": ["abcd1234:r5"]},
+        *({"text": f"filler {f['id']}", "finding_ids": [f["id"]], "rounds": []}
+          for f in FINDINGS[:7]),
+    ]}]}  # fmt: skip
+    brief = ground(answer, FINDINGS, ROUNDS)
+    assert brief["dropped"] == 1  # the unknown round
+    first = brief["sections"][0]["claims"][0]
+    assert first["rounds"] == [ROUNDS["abcd1234:r5"] | {"ref": "abcd1234:r5"}]
+    assert brief["sections"][0]["title"] == "Rounds to watch"
+
+
+def test_payload_tells_each_round_on_the_round_timer(ai: Api, entry: int) -> None:
+    payload = preview(ai, entry)["payload"]
+    stories = payload["rounds"]
+    assert len(stories) == len(ai.findings(entry)["round_index"])
+    first = stories[0]
+    assert re.match(r"^\w{8}:r1 · T · pistol vs pistol · score 0-0 · ", first)
+    lines = first.splitlines()
+    assert [line[:5] for line in lines[1:4]] == ["1:40 ", "1:25 ", "1:10 "]  # the round timer
+    assert not STEAMID.search(json.dumps(stories))
+    timed = [f for f in payload["findings"] if f["kind"] == "ts.strategy"]
+    assert timed and all(re.fullmatch(r"\d:\d\d", f["params"]["median_hit_at"]) for f in timed)
+    assert "median_hit_s" not in json.dumps(payload)
+    t_only = preview(ai, entry, side="T")["payload"]["rounds"]
+    assert t_only and all(" · T · " in s.splitlines()[0] for s in t_only)
+
+
+def test_brief_shows_usage_downloads_as_markdown_and_rounds_can_be_watched(
+    ai: Api, entry: int
+) -> None:
+    created = send(ai, entry, preview(ai, entry)["token"]).json()
+    assert created["usage"] == {"input_tokens": 100, "output_tokens": 50}
+    assert created["cost_usd"] == pytest.approx((100 * 4 + 50 * 20) / 1e6)
+    page = ai.get(f"/entries/{entry}?tab=brief").text
+    assert "100 input and 50 output tokens" in page and "demo_gototick" in page
+    md = ai.get(f"/ui/entries/{entry}/ai-brief.md")
+    assert md.status_code == 200
+    disposition = md.headers["content-disposition"]
+    assert disposition == 'attachment; filename="Scouted-de_mirage-ai-brief.md"'
+    text = md.text
+    assert text.startswith("# Anti-strat brief: Scouted on de_mirage")
+    assert "## Pistol rounds" in text and "Watch: demo " in text and "`demo_gototick " in text
+    assert leaks(text) == []
+    watched = created["sections"][1]["claims"][0]["rounds"][0]
+    assert watched["file"].endswith(".dem") and watched["tick"] > 0
+    drawer = ai.get(f"/ui/entries/{entry}/rounds", params={"refs": [watched["ref"]]}).text
+    assert "Story" in drawer and f"demo_gototick {watched['tick']}" in drawer and "1:40 " in drawer
 
 
 # ---------------------------------------------------------------- key handling

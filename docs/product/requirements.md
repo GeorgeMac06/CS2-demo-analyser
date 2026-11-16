@@ -91,7 +91,7 @@ Each finding comes with a frequency and a sample size. The owner can explore the
 
 ### J5 — Generate an AI summary (optional)
 - Available only when a Claude API key is set up.
-- The app shows the Analyst what will be sent (aggregated stats, no raw demos) before anything is sent (FR-AI-2).
+- The app shows the Analyst what will be sent (findings and short round summaries, no raw demos) before anything is sent (FR-AI-2).
 
 ## 4. Functional requirements
 
@@ -198,7 +198,7 @@ Status for every item below: **Proposed**.
 | ID | Requirement | Acceptance |
 |---|---|---|
 | FR-AI-1 | When a Claude API key is set up, the Analyst can generate an "anti-strat brief". It covers the team's tendencies, each player's tendencies, and suggested counters. Without a key, the feature is hidden or disabled with an explanation, and everything else works. | With no key, every non-AI feature still works. |
-| FR-AI-2 | Only **aggregated findings** are sent: patterns, stats, support values and player nicknames. Raw demos are not sent. The Analyst can preview the payload, and confirmation is required before sending. | The preview matches what is sent. |
+| FR-AI-2 | Only **findings and round summaries** are sent: patterns, stats, support values, player nicknames, and one short summary per round (positions by place name at the checkpoints, utility, the opening duel, the plant, the result). Raw demos, SteamIDs and coordinates are not sent. *Changed 2026-11-16 by the owner: aggregates alone could not show lurk paths, pistol strats or rounds to watch.* The Analyst can preview the payload, and confirmation is required before sending. | The preview matches what is sent. |
 | FR-AI-3 | The brief must refer to findings by their support. It must not state patterns that are not in the stats. A brief is saved with the entry and the date it was generated. It goes stale when the demo set changes, and the app shows a "stale" label. | Adding a demo marks the brief stale. |
 | FR-AI-4 | API errors (bad key, rate limit, network) are shown clearly. They never damage the entry. | Generating with a wrong key shows an error, and the entry is unchanged. |
 

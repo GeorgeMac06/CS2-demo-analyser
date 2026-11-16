@@ -155,7 +155,7 @@ def mine_t(rounds: list[TRound], cfg: AnalysisConfig) -> list[dict]:
         sig = Counter(signature(r.families[30].elements()) for r in rs).most_common(1)[0][0]
         usual = Counter(signature(r.setups[30].elements()) for r in rs).most_common(1)[0][0]
         out.append(pattern("ts.setup", (sig,), "team",
-                           f"At 0:30: {describe(sig)} (usually {describe(usual)})",
+                           f"At {clock(30)}: {describe(sig)} (usually {describe(usual)})",
                            {"checkpoint_s": 30, "groups": dict(sig), "usual": dict(usual)},
                            side, cluster))  # fmt: skip
 
@@ -171,7 +171,8 @@ def mine_t(rounds: list[TRound], cfg: AnalysisConfig) -> list[dict]:
     for band in ("rush", "default", "late"):
         mine = [r for r in rounds if r.tempo == band]
         if mine:
-            label = {"rush": "under 0:20", "default": "0:20–1:00", "late": "after 1:00"}[band]
+            label = {"rush": f"before {clock(20)}", "default": f"{clock(20)}–{clock(60)}",
+                     "late": f"after {clock(60)}"}[band]  # fmt: skip
             out.append(pattern("ts.tempo", (band,), "team", f"{band.capitalize()} hit ({label})",
                                {"band": band, "hit_times_s": [round(h, 1) for h in hit_times]},
                                side, [r.ref for r in mine]))  # fmt: skip

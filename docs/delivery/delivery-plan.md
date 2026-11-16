@@ -58,6 +58,7 @@
 <br>• The README covers install, run, use, settings, the AI brief, privacy, backup, and sharing exports.
 <br>• **P-6 recorded:** the awpy code is MIT. Neither the awpy README nor its documentation states terms for the radar images, which are derived from CS2 game files (checked 2026-11-15). Whether to share them is the owner's call. The Export menu now has **include map images**: unticked, figures render on a blank map, so an export can always be shared without them.
 <br>• Known gap, not in v1 scope: deleting an analysis leaves its parsed data and retained demo copies in place. There is no cleanup command; the README says so.
+<br>**Brief rework after owner feedback** (2026-11-16). The owner asked for tendencies instead of statistics, the in-game round timer, pistol rounds on their own, lurker paths, opening-duel spots, rounds to watch, a download, and a cost check. The owner approved sending per-round summaries (FR-AI-2 changed). Built: round stories, round-timer times everywhere, new brief sections and instructions (`ai/instructions.md`), round citations with `demo_gototick`, Markdown download, and token usage and cost per brief. On the real 4 demos the payload is about 40k input tokens.
 <br>**M3: waiting on the owner.** All automated gates pass. The owner's J1–J5 run-through on their own demos is still to do; J5 needs their API key (P-3).|
 | Outcome | The owner can import N demos of one team on one map. They can explore team and player patterns with support counts, and export a brief for teammates. The AI summary is optional. |
 

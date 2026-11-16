@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import polars as pl
 
+from cs2scout.core.patterns import ROUND_TIME_S, clock
+
 SIDE_COLOURS = {"T": "#E69F00", "CT": "#0072B2"}  # Okabe-Ito orange / blue
 # Yellow-orange-red: ordered by lightness, so it reads without colour vision (C-3). Opacity
 # rises with the value, so rarely visited cells leave the radar visible underneath.
@@ -88,16 +90,21 @@ TYPE_COLOURS = {"smoke": "#FFFFFF", "flash": "#F0E442", "molotov": "#D55E00", "H
 
 
 def tempo_figure(hit_times: list[float]) -> dict:
-    """When T hits land: one bar per 5 seconds, with the rush/default/late bands marked."""
-    trace = {"type": "histogram", "x": hit_times, "xbins": {"start": 0, "size": 5},
+    """When T hits land, on the round timer (1:55 at the left): one bar per 5 seconds, with
+    the rush/default/late bands marked."""
+    left = [ROUND_TIME_S - t for t in hit_times]  # time left on the round timer
+    trace = {"type": "histogram", "x": left, "xbins": {"start": 0, "size": 5},
              "marker": {"color": SIDE_COLOURS["T"]},
-             "hovertemplate": "%{x}s: %{y} rounds<extra></extra>"}  # fmt: skip
+             "hovertemplate": "%{y} rounds<extra></extra>"}  # fmt: skip
     dotted = {"dash": "dot", "color": "rgba(128,128,128,0.7)"}
-    bands = [{"type": "line", "x0": s, "x1": s, "y0": 0, "y1": 1, "yref": "paper",
-              "line": dotted} for s in (20, 60)]  # fmt: skip
+    bands = [{"type": "line", "x0": ROUND_TIME_S - s, "x1": ROUND_TIME_S - s, "y0": 0,
+              "y1": 1, "yref": "paper", "line": dotted} for s in (20, 60)]  # fmt: skip
+    ticks = list(range(ROUND_TIME_S, -1, -20))
     grid = "rgba(128,128,128,0.25)"
     layout = _base_layout(height=240, showlegend=False, shapes=bands,
-                          xaxis={"title": "seconds after freeze time"},
+                          xaxis={"title": "round timer", "autorange": "reversed",
+                                 "tickvals": ticks,
+                                 "ticktext": [clock(ROUND_TIME_S - v) for v in ticks]},
                           yaxis={"title": "rounds", "gridcolor": grid})  # fmt: skip
     return {"data": [trace], "layout": layout}
 

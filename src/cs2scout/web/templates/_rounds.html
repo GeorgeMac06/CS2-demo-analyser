@@ -1,7 +1,7 @@
 <div class="drawer" role="dialog" aria-label="{{ title }}">
   <div class="row"><h2 style="margin:0">{{ title }}</h2>
     <button type="button" class="secondary" style="margin-left:auto" onclick="document.getElementById('drawer').innerHTML=''">Close</button></div>
-  <p class="muted">{{ rounds | length }} round{{ "s" if rounds | length != 1 }}.</p>
+  <p class="muted">{{ rounds | length }} round{{ "s" if rounds | length != 1 }}. Open a round's story to see what happened. To watch it, open the demo in CS2 (<code>playdemo</code>) and paste its <code>demo_gototick</code> command into the console.</p>
   <table>
     <caption class="sr-only">Rounds behind this number</caption>
     <thead><tr><th>Demo</th><th>Date</th><th class="num">Round</th><th>Side</th><th>Buy vs</th><th>Score before</th><th>Result</th></tr></thead>
@@ -11,6 +11,9 @@
         <td class="side-{{ r.side }}">{{ r.side }}</td><td>{{ r.buy }} vs {{ r.opp_buy }}</td>
         <td>{{ r.score_us }}–{{ r.score_them }}</td>
         <td>{% if r.won %}<span class="chip ok">won</span>{% else %}<span class="chip bad">lost</span>{% endif %} <span class="muted">{{ r.end_reason.replace("_", " ") }}</span></td></tr>
+      {% if r.story or r.watch %}<tr class="story"><td colspan="7"><details><summary>Story{% if r.watch %} · <code>demo_gototick {{ r.watch.tick }}</code>{% endif %}</summary>
+        {% if r.watch and r.watch.file %}<p class="muted path">{{ r.watch.file }}</p>{% endif %}
+        {% if r.story %}<pre class="story">{{ r.story }}</pre>{% endif %}</details></td></tr>{% endif %}
     {% endfor %}
     </tbody>
   </table>

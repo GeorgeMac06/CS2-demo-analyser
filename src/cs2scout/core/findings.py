@@ -15,7 +15,8 @@ from cs2scout.core.config import AnalysisConfig
 from cs2scout.core.patterns import recount
 from cs2scout.core.rounds import BUYS
 
-SCHEMA_VERSION = 1
+# 2: round-timer titles and per-round stories (2026-11-16). Older versions offer "Update now".
+SCHEMA_VERSION = 2
 SIDES = ("T", "CT")
 
 

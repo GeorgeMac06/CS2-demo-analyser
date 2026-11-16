@@ -28,6 +28,7 @@ from cs2scout.core.patterns_ct import ct_rounds, mine_ct, player_ct_summary
 from cs2scout.core.patterns_t import mine_t, t_rounds
 from cs2scout.core.patterns_util import demo_util, mine_util
 from cs2scout.core.positions import PlaceIndex
+from cs2scout.core.round_story import round_stories
 from cs2scout.core.rounds import is_complete, lineup_score, match_result, team_rounds
 from cs2scout.core.schema import EXTRACT_SCHEMA
 from cs2scout.core.team import DemoLineups, assign_lineups, demo_lineups, propose_roster
@@ -226,6 +227,8 @@ def _analyse(ctx: JobContext, demos: list[LoadedDemo], scouted: dict, roster: li
              excluded: set[int], cfg: AnalysisConfig, vdir: Path,
              radar: Radar | None, map_name: str) -> dict:  # fmt: skip
     rounds_parts, player_parts, position_parts, summaries = [], [], [], []
+    stories: list[dict] = []
+    nicks = {m["steamid"]: m["nick"] for m in roster}
     t_obs, ct_obs, util_obs = [], [], []
     for i, d in enumerate(demos):
         ctx.check_cancel()
@@ -253,6 +256,13 @@ def _analyse(ctx: JobContext, demos: list[LoadedDemo], scouted: dict, roster: li
         place_index = PlaceIndex(d.tables["snapshots"])
         ct_obs.extend(ct_rounds(d.tables, rounds, members, map_name, d.tick_rate, place_index))
         util_obs.append(demo_util(d.tables, rounds, members, d.tick_rate, place_index))
+        names = {
+            r["steamid"]: r["name"]
+            for r in d.tables["players"].iter_rows(named=True)
+            if r["steamid"] in members
+        } | {s: n for s, n in nicks.items() if s in members}
+        stories.extend(round_stories(d.tables, rounds, members, names, d.tick_rate, place_index,
+                                     cfg.checkpoints_s))  # fmt: skip
         position_parts.append(live_positions(
             d.tables["snapshots"].filter(pl.col("steamid").is_in(list(members))), rounds,
             plants.group_by("ref").agg(pl.col("tick").min()), cfg, d.tick_rate,
@@ -274,6 +284,8 @@ def _analyse(ctx: JobContext, demos: list[LoadedDemo], scouted: dict, roster: li
         findings = all_findings(rounds, players, roster, patterns, cfg, recent_labels=used[-3:])
         round_index = round_index_json(rounds)
         rounds.write_parquet(vdir / "rounds.parquet")
+        # Local only: the AI brief and the rounds drawer read these (nicknames, no SteamIDs).
+        (vdir / "stories.json").write_text(json.dumps(stories), encoding="utf-8")
         players.write_parquet(vdir / "player_rounds.parquet")
     positions = pl.concat(position_parts) if position_parts else pl.DataFrame(
         schema=POSITION_COLUMNS)  # fmt: skip

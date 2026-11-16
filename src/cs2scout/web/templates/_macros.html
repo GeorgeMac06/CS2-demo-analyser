@@ -32,7 +32,7 @@
   {%- endif %}
 {%- endmacro %}
 
-{% macro clock(s) -%}{% if s is none %}—{% else %}{{ (s // 60) | int }}:{{ "%02d" | format((s % 60) | round | int) }}{% endif %}{%- endmacro %}
+{% macro clock(s) -%}{% if s is none %}—{% else %}{{ s | clock }}{% endif %}{%- endmacro %}
 
 {% macro recency(f) -%}
   {%- if f.recency.last_seen %}{{ f.recency.last_seen[:10] }}{% endif %}

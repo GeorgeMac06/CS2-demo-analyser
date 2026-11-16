@@ -30,17 +30,30 @@ class FakeClaude:
 def sent_payload(body: dict) -> dict:
     """The findings payload inside the request's user message."""
     text = body["messages"][0]["content"]
-    return json.loads(re.search(r"<findings>\n(.*)\n</findings>", text, re.S).group(1))
+    return json.loads(re.search(r"<evidence>\n(.*)\n</evidence>", text, re.S).group(1))
+
+
+def round_ids(body: dict) -> list[str]:
+    """The round IDs the payload's stories start with."""
+    return [story.split(" ", 1)[0] for story in sent_payload(body)["rounds"]]
 
 
 def cite_everything(body: dict) -> dict:
-    """A well-behaved answer: one claim per finding (up to 12), each citing its finding."""
+    """A well-behaved answer: one claim per finding (up to 12), each citing its finding, and
+    a pistol round and a round to watch citing round stories."""
     findings = sent_payload(body)["findings"][:12]
+    rounds = round_ids(body)
     return {"sections": [
         {"id": "t_side", "claims": [{"text": f"They often do this: {f['title']}.",
-                                     "finding_ids": [f["id"]]} for f in findings[:8]]},
+                                     "finding_ids": [f["id"]], "rounds": []}
+                                    for f in findings[:8]]},
+        {"id": "pistols", "claims": [{"text": "On the T pistol they rush B together.",
+                                      "finding_ids": [], "rounds": rounds[:1]}]},
+        {"id": "watch", "claims": [{"text": "Watch how the lurker moves at 1:25.",
+                                    "finding_ids": [], "rounds": rounds[1:3]}]},
         {"id": "counters", "claims": [{"text": "Stack the site they hit most.",
-                                       "finding_ids": [f["id"]]} for f in findings[8:]]},
+                                       "finding_ids": [f["id"]], "rounds": []}
+                                      for f in findings[8:]]},
     ]}  # fmt: skip
 
 

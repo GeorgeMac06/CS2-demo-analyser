@@ -100,10 +100,16 @@ def multiset_similarity(a: Counter, b: Counter) -> float:
     return top / bottom if bottom else 1.0
 
 
+# The round timer starts at 1:55 when freeze time ends (measured on real demos: a round
+# that ran out of time lasted exactly 115.0 s).
+ROUND_TIME_S = 115
+
+
 def clock(seconds: float | None) -> str:
+    """``seconds`` after freeze time, as the in-game round timer shows it (20 s -> 1:35)."""
     if seconds is None:
         return "?"
-    s = max(0, round(seconds))
+    s = max(0, ROUND_TIME_S - round(seconds))
     return f"{s // 60}:{s % 60:02d}"
 
 

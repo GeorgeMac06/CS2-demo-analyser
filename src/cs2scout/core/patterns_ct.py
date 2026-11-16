@@ -1,7 +1,8 @@
 """CT-side patterns (FR-CT-1..5; design §6.3). WU-11.
 
-Per CT round: where each player stands at 0:20 and the team setup that makes, early duels,
-the first enemy contact on a site and who rotates to it, and what happens after a plant.
+Per CT round: where each player stands 20 s in (1:35 on the round timer), the team setup that
+makes, early duels, the first enemy contact on a site and who rotates to it, and what happens
+after a plant.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ import polars as pl
 
 from cs2scout.core.config import AnalysisConfig
 from cs2scout.core.features import assign_rounds
-from cs2scout.core.patterns import describe, median, pattern, signature
+from cs2scout.core.patterns import clock, describe, median, pattern, signature
 from cs2scout.core.positions import PlaceIndex, positions_at
 from cs2scout.core.zones import PlaceNameZones
 
@@ -28,7 +29,7 @@ class CTRound:
     ref: str
     buy: str
     won: bool
-    places: dict[int, str] = field(default_factory=dict)  # steamid -> place at 0:20 (alive)
+    places: dict[int, str] = field(default_factory=dict)  # steamid -> place 20 s in (alive)
     setup: tuple = ()
     early: list[dict] = field(default_factory=list)  # {steamid, won, place}
     contact_site: str | None = None
@@ -158,8 +159,9 @@ def mine_ct(rounds: list[CTRound], keys: dict[int, str], cfg: AnalysisConfig) ->
             setups[r.setup].append(r.ref)
     for sig, refs in setups.items():
         if len(refs) >= 2:
-            out.append(pattern("ct.setup", (sig,), "team", f"Setup at 0:20: {describe(sig)}",
-                               {"groups": dict(sig)}, side, refs))  # fmt: skip
+            title = f"Setup at {clock(SETUP_AT_S)}: {describe(sig)}"
+            out.append(pattern("ct.setup", (sig,), "team", title, {"groups": dict(sig)}, side,
+                               refs))  # fmt: skip
 
     stacks: dict[str, list[str]] = defaultdict(list)
     for r in rounds:
@@ -178,7 +180,7 @@ def mine_ct(rounds: list[CTRound], keys: dict[int, str], cfg: AnalysisConfig) ->
         counts = Counter(place for _, place in seen)
         main = counts.most_common(1)[0][0]
         spots = [{"place": p, "rounds": n} for p, n in counts.most_common(4)]
-        out.append(pattern("ct.position", (), key, f"Most often at {main} at 0:20", {
+        out.append(pattern("ct.position", (), key, f"Most often at {main} at {clock(SETUP_AT_S)}", {
             "main": main, "positions": spots, "observed": len(seen),
             "share_pct": round(100 * counts[main] / len(seen), 1),
         }, {"side": "CT", "player": key}, [ref for ref, p in seen if p == main],
@@ -188,7 +190,7 @@ def mine_ct(rounds: list[CTRound], keys: dict[int, str], cfg: AnalysisConfig) ->
         if duels:
             won = sum(1 for _, d in duels if d["won"])
             where = Counter(d["place"] for _, d in duels).most_common(3)
-            out.append(pattern("ct.aggression", (), key, "Early duels (before 0:20)", {
+            out.append(pattern("ct.aggression", (), key, f"Early duels (before {clock(EARLY_S)})", {
                 "duels": len(duels), "won": won, "lost": len(duels) - won,
                 "places": [{"place": p, "duels": n} for p, n in where],
             }, {"side": "CT", "player": key}, [ref for ref, _ in duels], stat=True))  # fmt: skip

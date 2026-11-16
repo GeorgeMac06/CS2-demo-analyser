@@ -21,8 +21,9 @@ from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 
 from cs2scout import __version__
-from cs2scout.core.findings import RoundFilter
+from cs2scout.core.findings import SCHEMA_VERSION, RoundFilter
 from cs2scout.core.grids import PHASES
+from cs2scout.core.patterns import clock
 from cs2scout.ingest.files import is_candidate
 from cs2scout.jobs.import_job import run_import
 from cs2scout.store import assets
@@ -48,6 +49,7 @@ def _size(n: int | None) -> str:
 
 
 templates.env.filters["size"] = _size
+templates.env.filters["clock"] = clock  # the in-game round timer
 TABS = ("overview", "t", "ct", "utility", "players", "demos", "brief")
 BUYS = ("pistol", "eco", "force", "full")
 ROLES = ("core", "standin", "excluded")
@@ -233,7 +235,9 @@ def entry_page(entry_id: int, request: Request, tab: str = "overview") -> HTMLRe
     tab_template = tab_ctx.pop("template")
     vdir = request.app.state.library.current_version_dir(entry_id)
     # Built before pattern mining existed (or by an older format): offer a recompute.
-    outdated = vdir is not None and not (vdir / "patterns.json").exists()
+    built = (snapshot or {}).get("schema_version", 0)
+    outdated = vdir is not None and (not (vdir / "patterns.json").exists()
+                                     or built < SCHEMA_VERSION)  # fmt: skip
     brief = _brief(request, entry_id)
     fresh_brief = brief is not None and not brief["stale"]
     built_with = snapshot["entry"].get("config_hash") if snapshot else None
@@ -558,3 +562,11 @@ async def ui_settings(request: Request) -> HTMLResponse:
     except ValueError:
         return _settings_page(request, "_settings.html", error="Use whole numbers.")
     return _settings_page(request, "_settings.html", notice="Saved.")
+
+
+@router.get("/ui/entries/{entry_id}/ai-brief.md")
+def ui_brief_markdown(entry_id: int, request: Request) -> Response:
+    try:
+        return api.brief_markdown(entry_id, request)
+    except ApiError as exc:
+        return _error(request, exc.message)

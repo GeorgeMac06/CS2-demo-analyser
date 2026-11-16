@@ -29,6 +29,8 @@ The app opens in your browser at `http://127.0.0.1:8765`. Stop it with Ctrl+C in
 
 ## Use it
 
+Times everywhere are the in-game round timer, which shows 1:55 when freeze time ends: "at 1:35" means 20 seconds into the round.
+
 1. **New analysis.** Drop `.dem`, `.dem.gz`, `.dem.bz2` or `.zip` files (FACEIT and ESEA downloads work as they are), or paste a folder path. The app finds the team that appears in every demo. You confirm the roster, marking stand-ins and anyone to leave out.
 2. **Add demos** as the season goes on. Only new demos are parsed. Each update is a new version of the analysis, and labels you gave to patterns carry over to it.
 3. **Explore.** The tabs are Overview, T side, CT side, Utility, Players and Demos. Use the filters for side, buy type, dates and overtime. Every number is shown as "k/n" (seen in k of n eligible rounds); click it to list those rounds. Name any pattern with ✎.
@@ -59,14 +61,16 @@ These variables can also go in a `.env` file in the workspace folder, or in the 
 
 ## AI brief (optional)
 
-With a Claude API key, the **AI brief** tab turns the findings into an anti-strat brief: T and CT tendencies, utility, players, and suggested counters.
+With a Claude API key, the **AI brief** tab turns the analysis into an anti-strat brief written as tendencies: how they hit on T (and where the odd player out goes), every pistol round, CT setups and reactions, each player's habits and opening-duel spots, rounds worth watching, and suggested counters.
 
 - Put `ANTHROPIC_API_KEY=sk-ant-...` in `.env` in the workspace folder, then restart the app.
 - **Preview what is sent** shows the exact data and instructions before anything leaves your PC. Nothing is sent until you click **Send to Claude**. The preview is valid for 10 minutes, and changing the filters needs a new one.
-- What is sent: patterns that pass the support rule, with their counts; player nicknames; and demo dates and scores. It never includes demo files, SteamIDs, positions or round lists.
-- Every claim must cite findings from the analysis, and is shown with them. Claims that cite nothing are dropped. If too many are dropped, the brief is rejected, and you can try again.
+- What is sent: patterns that pass the support rule, with their counts; a short summary of each round (where each player was at 1:40, 1:25 and 1:10, their utility, the opening duel, the plant and the result); player nicknames; and demo dates and scores. It never includes demo files, SteamIDs or coordinates.
+- Every claim must cite findings or rounds from the analysis, and is shown with them. A cited round shows its demo file and a `demo_gototick` command: open the demo in CS2 (`playdemo`) and paste the command into the console to jump to that round. Claims that cite nothing are dropped. If too many are dropped, the brief is rejected, and you can try again.
 - A brief goes stale when the analysis changes. Only a brief that is not stale goes into exports, labelled "AI-generated".
-- Each brief is one paid API call: about 20,000 input tokens for a 4-demo analysis, plus the answer. That usually costs well under $1 with the default model.
+- **Download as Markdown** saves the brief as a `.md` file that pastes cleanly into Discord and reads fine as plain text.
+- Each brief is one paid API call: about 40,000 input tokens for a 4-demo analysis (about $0.17 with the default model), plus the answer. The brief shows the tokens it used and the list-price cost. `CS2SCOUT_AI_MODEL=claude-sonnet-5-5` halves the price, probably at some cost in quality.
+- The instructions Claude gets are in `src/cs2scout/ai/instructions.md`. Edit them to change what the brief focuses on.
 
 ## Privacy
 

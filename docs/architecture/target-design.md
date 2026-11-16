@@ -398,6 +398,7 @@ The thresholds below come from `AnalysisConfig`. The defaults are Q2 and Q3 from
 - **Payload builder:**
   - The current filtered snapshot is projected to compact JSON: findings (id, kind, title, params, support, outcome, recency), the roster (key and nickname), and demo labels/dates.
   - No grids, no round lists beyond counts, no SteamIDs. A regex test enforces this.
+  - **Changed 2026-11-16 (owner):** the payload also carries one story per round (`core/round_story.py`, saved per version as `stories.json`): the round header (side, buys, score, result), each player's place at the checkpoints, utility (type, landing place, time, thrower), the opening duel and the plant with everyone's place at that moment. Times are on the round timer (1:55 at freeze end, measured on real demos); after a plant they are `plant+Ns`. Claims may cite round IDs as well as findings. The brief's sections are T side, pistol rounds, CT side, players, rounds to watch and counters. Each cited round shows its demo file and a `demo_gototick` command. The instructions live in `ai/instructions.md`. A brief records its token usage and list-price cost, and downloads as Markdown. Snapshot `schema_version` 2 marks versions that have stories and round-timer titles; older versions offer "Update now".
   - The preview shows the payload and the token estimate. The token is an HMAC of the payload hash and expires in 10 min.
 - **Client:**
   - Uses the official Anthropic Python SDK. The API key comes from `.env` or an environment variable and is never logged.

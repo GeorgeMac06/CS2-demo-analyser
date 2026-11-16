@@ -354,7 +354,10 @@ def get_rounds(
     """FR-CONF-3: the rounds behind a finding (demo, round number, score)."""
     rounds = filtered_snapshot(_version_dir(request, entry_id), RoundFilter())["round_index"]
     wanted = set(refs)
-    return [r for r in rounds if not wanted or r["ref"] in wanted]
+    told = {s["ref"]: s["text"] for s in stories(request, entry_id)}
+    watch = watch_info(request, entry_id)
+    return [r | {"story": told.get(r["ref"]), "watch": watch.get(r["ref"])}
+            for r in rounds if not wanted or r["ref"] in wanted]  # fmt: skip
 
 
 class FilterBody(BaseModel):
@@ -421,10 +424,33 @@ def _ai_key(request: Request) -> str:
     return key
 
 
+def stories(request: Request, entry_id: int) -> list[dict]:
+    """The current version's round stories ([] for a version built before they existed)."""
+    path = _version_dir(request, entry_id) / "stories.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
+
+
+def watch_info(request: Request, entry_id: int) -> dict[str, dict]:
+    """Per round: what to open and where to jump (demo file, round, side, tick)."""
+    lib = _state(request).library
+    files = {d["sha256"][:8]: (d["original_path"] or "").replace("\\", "/").rsplit("/", 1)[-1]
+             for d in lib.entry_demos(entry_id)}  # fmt: skip
+    snapshot = filtered_snapshot(_version_dir(request, entry_id), RoundFilter())
+    demos = {d["label"]: d for d in snapshot["demos"]}
+    out = {}
+    for s in stories(request, entry_id):
+        demo = demos.get(s["demo"], {})
+        out[s["ref"]] = {"demo": s["demo"], "round": s["round"], "side": s["side"],
+                         "tick": s["tick"], "file": files.get(s["demo"], ""),
+                         "played_on": (demo.get("played_at") or "")[:10],
+                         "score": demo.get("score")}  # fmt: skip
+    return out
+
+
 def _brief_payload(request: Request, entry_id: int, flt: RoundFilter) -> dict:
     entry = get_entry(entry_id, request)
     snapshot = labelled(request, entry_id, filtered_snapshot(_version_dir(request, entry_id), flt))
-    payload = ai_payload.build(snapshot, entry, active_filter(flt))
+    payload = ai_payload.build(snapshot, entry, active_filter(flt), stories(request, entry_id))
     try:
         ai_payload.check(payload)
     except ai_payload.PayloadLeak as exc:
@@ -445,6 +471,7 @@ def preview_brief(entry_id: int, body: FilterBody, request: Request) -> dict:
         "estimated_input_tokens": ai_payload.estimate_tokens(ai_client.INSTRUCTIONS + message),
         "token": ai_confirm.make(_state(request).ai_secret, entry_id, digest, _now()),
         "expires_in_s": ai_confirm.TTL_S,
+        "price": ai_client.PRICES.get(_state(request).settings.ai_model),
     }  # fmt: skip
 
 
@@ -472,11 +499,11 @@ def create_brief(entry_id: int, body: BriefRequest, request: Request) -> dict:
         state.ai_used.add(body.token)
         state.ai_busy.add(entry_id)
     try:
-        answer, served_by = ai_client.write_brief(
+        answer, served_by, usage = ai_client.write_brief(
             ai_payload.canonical(payload), api_key=key, model=state.settings.ai_model,
             http_client=state.ai_http_client,
         )  # fmt: skip
-        brief = ai_grounding.ground(answer, payload["findings"])
+        brief = ai_grounding.ground(answer, payload["findings"], watch_info(request, entry_id))
     except ai_client.Upstream as exc:
         raise ApiError(502, ErrorCode.AI_UPSTREAM, str(exc)) from exc
     except ai_grounding.Ungrounded as exc:
@@ -485,8 +512,10 @@ def create_brief(entry_id: int, body: BriefRequest, request: Request) -> dict:
         with state.ai_lock:
             state.ai_busy.discard(entry_id)
     try:
+        extra = {"filter": payload["filter"], "usage": usage,
+                 "cost_usd": ai_client.cost_usd(served_by, usage)}  # fmt: skip
         state.library.save_brief(entry_id, payload["analysis_version"], served_by, digest,
-                                 brief | {"filter": payload["filter"]})  # fmt: skip
+                                 brief | extra)  # fmt: skip
     except sqlite3.IntegrityError as exc:  # the analysis was deleted during the call
         raise not_found("entry") from exc
     return state.library.latest_brief(entry_id)
@@ -556,3 +585,22 @@ def put_settings(body: SettingsBody, request: Request) -> dict:
                         workspace_cap_gb=body.workspace_cap_gb, port=body.port)  # fmt: skip
     prefs.save(_state(request).settings.home, saved)
     return settings_json(request)
+
+
+@router.get("/entries/{entry_id}/ai-brief/markdown")
+def brief_markdown(entry_id: int, request: Request):
+    """The latest brief as a Markdown file (Discord, notes, plain text)."""
+    from fastapi.responses import Response
+
+    from cs2scout.export.inline import filename
+    from cs2scout.web import brief_md
+
+    brief = get_brief(entry_id, request)
+    entry = get_entry(entry_id, request)
+    try:
+        text = brief_md.render(brief, entry)
+    except brief_md.DownloadLeak as exc:
+        raise ApiError(500, ErrorCode.EXPORT_BLOCKED, str(exc)) from exc
+    name = filename(entry["team"], entry["map"], "ai-brief").removesuffix(".html") + ".md"
+    return Response(text, media_type="text/markdown; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})  # fmt: skip
