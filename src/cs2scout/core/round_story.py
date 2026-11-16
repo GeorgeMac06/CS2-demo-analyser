@@ -36,7 +36,7 @@ def _site(value: str | None) -> str:
 
 
 def _where(rows: list[dict], names: dict[int, str]) -> str:
-    """Players grouped by place: ``Apartments: rizzy, Zyrx · TopofMid: Ping · dead: Salty``."""
+    """Players grouped by place: ``Apartments: a1, a2 · TopofMid: a3 · dead: a4``."""
     by_place: dict[str, list[str]] = defaultdict(list)
     dead = []
     for r in sorted(rows, key=lambda r: names.get(r["steamid"], "")):
@@ -130,7 +130,7 @@ def round_stories(tables: dict[str, pl.DataFrame], rounds: pl.DataFrame, members
 
 def _utility(nades: list[dict], names: dict[int, str], places: PlaceIndex, secs,
              plant_s: float | None) -> str:  # fmt: skip
-    """``smoke Catwalk 1:55 (Zyrx); flash BombsiteB 1:27, 1:26 (Ping, Salty)``."""
+    """``smoke Catwalk 1:55 (a2); flash BombsiteB 1:27, 1:26 (a3, a4)``."""
     groups: dict[tuple[str, str], dict] = {}
     for g in nades:
         key = (NADES[g["type"]], places.place(g["land_x"], g["land_y"]))
