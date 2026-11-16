@@ -1,5 +1,10 @@
 """The AI brief as Markdown (owner request 2026-11-16): pastes cleanly into Discord or notes,
-and reads fine as plain text."""
+and reads fine as plain text.
+
+The body is what the team reads: plays as a bold title over short points. What each item
+rests on goes in an appendix for the analyst, so the body stays short. Only rounds to watch
+carry their console command inline.
+"""
 
 from __future__ import annotations
 
@@ -10,11 +15,22 @@ class DownloadLeak(RuntimeError):
     pass
 
 
-def _round(r: dict) -> str:
-    score = f" ({r['score']})" if r.get("score") else ""
-    file = f", {r['file']}" if r.get("file") else ""
-    return (f"demo {r['demo']}{score}{file}, round {r['round']} {r['side']}: "
-            f"`demo_gototick {r['tick']}`")  # fmt: skip
+def _heading(claim: dict) -> str:
+    return claim.get("title") or claim.get("text") or ""  # "text": briefs saved before plays
+
+
+def _item(claim: dict) -> list[str]:
+    points = claim.get("points") or []
+    if not points:
+        return [f"- {_heading(claim)}"]
+    return [f"**{_heading(claim)}**", *(f"- {p}" for p in points), ""]
+
+
+def _rounds(rounds: list[dict]) -> str:
+    by_demo: dict[str, list[str]] = {}
+    for r in rounds:
+        by_demo.setdefault(r["demo"], []).append(f"r{r['round']}")
+    return "; ".join(f"{demo} {', '.join(refs)}" for demo, refs in by_demo.items())
 
 
 def render(brief: dict, entry: dict) -> str:
@@ -25,23 +41,44 @@ def render(brief: dict, entry: dict) -> str:
         f"{brief['entry_version']}. Times are the round timer (1:55 when freeze time ends).*",
     ]
     if brief.get("stale"):
-        lines.append("")
-        lines.append("> **Stale:** the analysis has changed since this brief was written.")
+        lines += ["", "> **Stale:** the analysis has changed since this brief was written."]
+    evidence: list[str] = []
+    demos: dict[str, dict] = {}
     for section in brief["sections"]:
         lines += ["", f"## {section['title']}", ""]
         if section["id"] == "counters":
             lines += ["*Suggestions, not observations.*", ""]
         if section["id"] == "watch":
-            lines += ["*Open the demo in CS2 (`playdemo`), then paste the `demo_gototick` "
-                      "command into the console.*", ""]  # fmt: skip
+            lines += ["*Open the demo in CS2 (`playdemo` with the file from the demo list "
+                      "at the end), then paste the `demo_gototick` command into the console.*",
+                      ""]  # fmt: skip
         for claim in section["claims"]:
-            lines.append(f"- {claim['text']}")
-            evidence = [f"{f['title']} ({f['k']}/{f['n']})" if f.get("k") is not None
-                        else f["title"] for f in claim["cites"]]  # fmt: skip
-            if evidence:
-                lines.append(f"  - Evidence: {'; '.join(evidence)}")
-            for r in claim.get("rounds") or []:
-                lines.append(f"  - Watch: {_round(r)}")
+            item = _item(claim)
+            rounds = claim.get("rounds") or []
+            for r in rounds:
+                demos.setdefault(r["demo"], r)
+            if section["id"] == "watch":
+                if item[-1] == "":
+                    item.pop()
+                elif item[0].startswith("- "):
+                    item = [f"**{item[0][2:]}**"]
+                item += [f"- Demo {r['demo']}, round {r['round']} ({r['side']}): "
+                         f"`demo_gototick {r['tick']}`" for r in rounds] + [""]  # fmt: skip
+            lines += item
+            cites = [f"{f['title']} ({f['k']}/{f['n']})" if f.get("k") is not None
+                     else f["title"] for f in claim["cites"]]  # fmt: skip
+            if rounds:
+                cites.append("rounds " + _rounds(rounds))
+            evidence.append(f"- **{_heading(claim)}** ({section['title']}): {'; '.join(cites)}")
+        while lines[-1] == "":
+            lines.pop()
+    if evidence:
+        lines += ["", "---", "", "## Evidence", "",
+                  "*For the analyst: what each item above rests on.*", "", *evidence]  # fmt: skip
+    if demos:
+        lines += ["", "## Demos", "", "| Demo | Date | Score | File |", "|---|---|---|---|"]
+        lines += [f"| {d['demo']} | {d.get('played_on') or ''} | {d.get('score') or ''} | "
+                  f"{d.get('file') or ''} |" for d in demos.values()]  # fmt: skip
     text = "\n".join(lines) + "\n"
     problems = leaks(text)
     if problems:

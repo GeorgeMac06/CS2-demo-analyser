@@ -1,23 +1,25 @@
 """The brief's answer shape and the grounding check (FR-AI-3, design §6.5).
 
-Claude answers in sections of claims. Every claim cites what it rests on: finding IDs, round
-IDs (from the round stories), or both. A claim that cites nothing, or cites an ID that was
-not in the payload, is dropped. If more than 20% of claims are dropped, the whole brief is
-rejected (AI_UNGROUNDED).
+Claude answers in sections of claims. A claim is one play or habit: a short title ("B
+execute: usually early") and a few short points under it. Every claim cites what it rests
+on: finding IDs, round IDs (from the round stories), or both. A claim that cites nothing,
+or cites an ID that was not in the payload, is dropped. If more than 20% of claims are
+dropped, the whole brief is rejected (AI_UNGROUNDED).
 """
 
 from __future__ import annotations
 
 MAX_DROPPED_SHARE = 0.20
-# Sections in the order the brief shows them (owner feedback 2026-11-16: tendencies first,
-# pistol rounds on their own, rounds worth watching).
+# Sections in the order the brief shows them. Owner feedback 2026-11-16 (second round): a
+# short "what to expect" first, then each side as plays an IGL would write down.
 SECTIONS = {
-    "t_side": "T side: how they hit",
+    "overview": "What to expect",
+    "t_side": "T side",
+    "ct_side": "CT side",
     "pistols": "Pistol rounds",
-    "ct_side": "CT side: setups and reactions",
     "players": "Players",
-    "watch": "Rounds to watch",
     "counters": "Suggested counters",
+    "watch": "Rounds to watch",
 }
 
 SCHEMA = {
@@ -34,11 +36,12 @@ SCHEMA = {
                         "items": {
                             "type": "object",
                             "properties": {
-                                "text": {"type": "string"},
+                                "title": {"type": "string"},
+                                "points": {"type": "array", "items": {"type": "string"}},
                                 "finding_ids": {"type": "array", "items": {"type": "string"}},
                                 "rounds": {"type": "array", "items": {"type": "string"}},
                             },
-                            "required": ["text", "finding_ids", "rounds"],
+                            "required": ["title", "points", "finding_ids", "rounds"],
                             "additionalProperties": False,
                         },
                     },
@@ -70,14 +73,15 @@ def ground(answer: dict, findings: list[dict], rounds: dict[str, dict] | None = 
         kept = []
         for claim in section.get("claims") or []:
             total += 1
-            text = str(claim.get("text") or "").strip()
+            title = str(claim.get("title") or "").strip()
+            points = [str(p).strip() for p in claim.get("points") or [] if str(p).strip()]
             ids = list(dict.fromkeys(str(i) for i in claim.get("finding_ids") or []))
             refs = list(dict.fromkeys(str(r) for r in claim.get("rounds") or []))
             unknown = [i for i in ids if i not in known] + [r for r in refs if r not in rounds]
-            if not text or not (ids or refs) or unknown:
+            if not (title or points) or not (ids or refs) or unknown:
                 dropped += 1
                 continue
-            kept.append({"text": text, "cites": [_cite(known[i]) for i in ids],
+            kept.append({"title": title, "points": points, "cites": [_cite(known[i]) for i in ids],
                          "rounds": [rounds[r] | {"ref": r} for r in refs]})  # fmt: skip
         sid = str(section.get("id"))
         if kept and sid in SECTIONS:

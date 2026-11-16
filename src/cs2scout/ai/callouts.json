@@ -1,0 +1,19 @@
+{
+  "de_mirage": {
+    "BombsiteA": "A site",
+    "BombsiteB": "B site",
+    "Middle": "mid",
+    "TopofMid": "top mid",
+    "SnipersNest": "window",
+    "Catwalk": "short",
+    "Ladder": "ladder room",
+    "CTSpawn": "CT",
+    "TSpawn": "T spawn",
+    "TRamp": "ramp",
+    "PalaceInterior": "palace",
+    "Apartments": "apps",
+    "Shop": "market (its window and door face B site)",
+    "Truck": "car",
+    "House": "TV"
+  }
+}

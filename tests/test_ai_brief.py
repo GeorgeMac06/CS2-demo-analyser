@@ -15,7 +15,7 @@ from cs2scout.ai.grounding import Ungrounded, ground
 from cs2scout.export.inline import leaks
 from cs2scout.settings import Settings
 from support.api import Api, make_api
-from support.fake_claude import FakeClaude, error, sent_payload, stream
+from support.fake_claude import FakeClaude, claim, error, sent_payload, stream
 from support.scenarios import scouted_match
 from support.synth import write_demo
 
@@ -183,7 +183,7 @@ ROUNDS = {
 
 
 def claims(*ids_per_claim: list[str]) -> dict:
-    found = [{"text": f"claim {n}", "finding_ids": ids} for n, ids in enumerate(ids_per_claim)]
+    found = [claim(f"claim {n}", [], ids, []) for n, ids in enumerate(ids_per_claim)]
     return {"sections": [{"id": "t_side", "claims": found}]}
 
 
@@ -200,6 +200,22 @@ def test_grounding_drops_uncited_and_unknown_claims() -> None:
         ground({"sections": []}, FINDINGS)
 
 
+def test_a_play_is_a_title_over_short_points() -> None:
+    answer = {"sections": [{"id": "t_side", "claims": [
+        claim(" B execute: usually early ", ["4 in apps", " ", "Molly car"],
+              ["ts.site.team.0"], []),
+        claim("", [" "], ["ts.site.team.1"], []),  # nothing to say: dropped
+        *(claim(f"filler {f['id']}", [], [f["id"]], []) for f in FINDINGS[2:10]),
+    ]}]}  # fmt: skip
+    brief = ground(answer, FINDINGS, ROUNDS)
+    play = brief["sections"][0]["claims"][0]
+    assert brief["dropped"] == 1
+    assert (play["title"], play["points"]) == (
+        "B execute: usually early",
+        ["4 in apps", "Molly car"],
+    )
+
+
 def test_an_ungrounded_brief_is_rejected_and_not_saved(ai: Api, entry: int,
                                                        claude: FakeClaude) -> None:  # fmt: skip
     claude.reply = lambda body: stream(claims([], [], ["not.a.finding"], [sent_payload(body)
@@ -214,9 +230,13 @@ def test_brief_is_saved_exported_and_goes_stale_after_a_demo_is_added(
 ) -> None:
     created = send(ai, entry, preview(ai, entry)["token"]).json()
     assert created["stale"] is False and created["dropped"] == 0
-    assert [s["id"] for s in created["sections"]] == ["t_side", "pistols", "watch", "counters"]
+    assert [s["id"] for s in created["sections"]] == ["overview", "t_side", "pistols",
+                                                       "counters", "watch"]  # fmt: skip
+    assert created["sections"][0]["title"] == "What to expect"
     page = ai.get(f"/entries/{entry}?tab=brief").text
-    assert "AI-generated" in page and created["sections"][0]["claims"][0]["text"] in page
+    play = created["sections"][1]["claims"][0]
+    assert "AI-generated" in page and f"<strong>{play['title']}</strong>" in page
+    assert "<li>Usually early</li>" in page and "<summary>Evidence</summary>" in page
     html = ai.post(f"/api/entries/{entry}/export", {}).text
     assert "<h1>AI brief</h1>" in html and "AI-generated" in html and leaks(html) == []
 
@@ -245,11 +265,10 @@ def test_ui_flow_previews_then_sends(ai: Api, entry: int, claude: FakeClaude) ->
 
 def test_claims_can_cite_rounds_and_get_watch_details() -> None:
     answer = {"sections": [{"id": "watch", "claims": [
-        {"text": "Lurk through apps", "finding_ids": [], "rounds": ["abcd1234:r5"]},
-        {"text": "Made up round", "finding_ids": [], "rounds": ["abcd1234:r99"]},
-        {"text": "Both kinds", "finding_ids": ["ts.site.team.1"], "rounds": ["abcd1234:r5"]},
-        *({"text": f"filler {f['id']}", "finding_ids": [f["id"]], "rounds": []}
-          for f in FINDINGS[:7]),
+        claim("Lurk through apps", [], [], ["abcd1234:r5"]),
+        claim("Made up round", [], [], ["abcd1234:r99"]),
+        claim("Both kinds", [], ["ts.site.team.1"], ["abcd1234:r5"]),
+        *(claim(f"filler {f['id']}", [], [f["id"]], []) for f in FINDINGS[:7]),
     ]}]}  # fmt: skip
     brief = ground(answer, FINDINGS, ROUNDS)
     assert brief["dropped"] == 1  # the unknown round
@@ -270,6 +289,7 @@ def test_payload_tells_each_round_on_the_round_timer(ai: Api, entry: int) -> Non
     timed = [f for f in payload["findings"] if f["kind"] == "ts.strategy"]
     assert timed and all(re.fullmatch(r"\d:\d\d", f["params"]["median_hit_at"]) for f in timed)
     assert "median_hit_s" not in json.dumps(payload)
+    assert payload["callouts"]["SnipersNest"] == "window"  # de_mirage: what players call it
     t_only = preview(ai, entry, side="T")["payload"]["rounds"]
     assert t_only and all(" · T · " in s.splitlines()[0] for s in t_only)
 
@@ -288,9 +308,19 @@ def test_brief_shows_usage_downloads_as_markdown_and_rounds_can_be_watched(
     assert disposition == 'attachment; filename="Scouted-de_mirage-ai-brief.md"'
     text = md.text
     assert text.startswith("# Anti-strat brief: Scouted on de_mirage")
-    assert "## Pistol rounds" in text and "Watch: demo " in text and "`demo_gototick " in text
+    play = created["sections"][1]["claims"][0]
+    assert f"**{play['title']}**\n- Usually early\n- Lurk mid\n" in text
+    assert "## What to expect\n\n- Fast B hits\n" in text and "## Pistol rounds" in text
+    watch = next(s for s in created["sections"] if s["id"] == "watch")
+    watched = watch["claims"][0]["rounds"][0]
+    assert (f"- Demo {watched['demo']}, round {watched['round']} ({watched['side']}): "
+            f"`demo_gototick {watched['tick']}`") in text  # fmt: skip
+    body, appendix = text.split("## Evidence")
+    cite = play["cites"][0]
+    evidence = f"{cite['title']} ({cite['k']}/{cite['n']})"
+    assert evidence not in body and f"**{play['title']}** (T side): {evidence}" in appendix
+    assert "## Demos" in appendix and f"| {watched['file']} |" in appendix
     assert leaks(text) == []
-    watched = created["sections"][1]["claims"][0]["rounds"][0]
     assert watched["file"].endswith(".dem") and watched["tick"] > 0
     drawer = ai.get(f"/ui/entries/{entry}/rounds", params={"refs": [watched["ref"]]}).text
     assert "Story" in drawer and f"demo_gototick {watched['tick']}" in drawer and "1:40 " in drawer
@@ -316,3 +346,18 @@ def test_token_is_bound_to_entry_payload_and_time() -> None:
     assert not confirm.valid(secret, token, 2, "abc", now=1000)
     assert not confirm.valid(secret, token, 1, "abd", now=1000)
     assert not confirm.valid(b"t" * 32, token, 1, "abc", now=1000)
+
+
+def test_a_brief_saved_before_plays_still_shows_and_downloads(ai: Api, entry: int) -> None:
+    library = ai.client.app.state.library
+    finding = ai.findings(entry)["findings"][0]
+    old = {"sections": [{"id": "t_side", "title": "T side: how they hit", "claims": [
+        {"text": "They hit B early.", "cites": [{"id": finding["id"], "title": "Hits B",
+                                                 "k": 5, "n": 9}], "rounds": []}]}],
+           "claims": 1, "dropped": 0, "filter": {}}  # fmt: skip
+    version = library.get_entry(entry).current_version
+    library.save_brief(entry, version, "claude-opus-5-5", "h", old)
+    assert "They hit B early." in ai.get(f"/entries/{entry}?tab=brief").text
+    md = ai.get(f"/ui/entries/{entry}/ai-brief.md").text
+    assert "- They hit B early." in md
+    assert "- **They hit B early.** (T side: how they hit): Hits B (5/9)" in md

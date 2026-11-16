@@ -61,16 +61,17 @@ These variables can also go in a `.env` file in the workspace folder, or in the 
 
 ## AI brief (optional)
 
-With a Claude API key, the **AI brief** tab turns the analysis into an anti-strat brief written as tendencies: how they hit on T (and where the odd player out goes), every pistol round, CT setups and reactions, each player's habits and opening-duel spots, rounds worth watching, and suggested counters.
+With a Claude API key, the **AI brief** tab turns the analysis into a short anti-strat brief of what to expect, written like an IGL's notes. It starts with a few lines that sum the team up. Then come their T plays, each with where the five go, the utility that starts it, its pace and what they do after an early pick. After those: CT setups and reactions, pistol rounds, each player's habits, suggested counters and rounds worth watching.
 
 - Put `ANTHROPIC_API_KEY=sk-ant-...` in `.env` in the workspace folder, then restart the app.
 - **Preview what is sent** shows the exact data and instructions before anything leaves your PC. Nothing is sent until you click **Send to Claude**. The preview is valid for 10 minutes, and changing the filters needs a new one.
 - What is sent: patterns that pass the support rule, with their counts; a short summary of each round (where each player was at 1:40, 1:25 and 1:10, their utility, the opening duel, the plant and the result); player nicknames; and demo dates and scores. It never includes demo files, SteamIDs or coordinates.
 - Every claim must cite findings or rounds from the analysis, and is shown with them. A cited round shows its demo file and a `demo_gototick` command: open the demo in CS2 (`playdemo`) and paste the command into the console to jump to that round. Claims that cite nothing are dropped. If too many are dropped, the brief is rejected, and you can try again.
 - A brief goes stale when the analysis changes. Only a brief that is not stale goes into exports, labelled "AI-generated".
-- **Download as Markdown** saves the brief as a `.md` file that pastes cleanly into Discord and reads fine as plain text.
+- **Download as Markdown** saves the brief as a `.md` file that pastes cleanly into Discord and reads fine as plain text. The plays come first. What each one rests on, and the demo files, are in an appendix at the end. In the app, click **Evidence** under a play to see it.
 - Each brief is one paid API call: about 40,000 input tokens for a 4-demo analysis (about $0.17 with the default model), plus the answer. The brief shows the tokens it used and the list-price cost. `CS2SCOUT_AI_MODEL=claude-sonnet-5-5` halves the price, probably at some cost in quality.
-- The instructions Claude gets are in `src/cs2scout/ai/instructions.md`. Edit them to change what the brief focuses on.
+- The instructions Claude gets are in `src/cs2scout/ai/instructions.md`. Edit them to change what the brief focuses on, then restart the app.
+- `src/cs2scout/ai/callouts.json` turns the game's place names into the callouts players use (for example, Mirage's House is TV and Truck is car). Only Mirage is listed so far. On other maps, Claude uses the usual callouts. Edit the file to match your team's calls, then restart.
 
 ## Privacy
 

@@ -1,3 +1,4 @@
+{% macro round_chip(r) %}<span class="chip round" title="{{ r.file or r.demo }}">{{ r.demo }}{% if r.score %} ({{ r.score }}){% endif %} · round {{ r.round }} {{ r.side }} · <code>demo_gototick {{ r.tick }}</code></span>{% endmacro %}
 <article class="card brief" aria-label="AI brief">
   <p><span class="chip">AI-generated</span>{% if brief.stale %} <span class="chip warn">stale</span>{% endif %}
     <span class="muted">Written by {{ brief.model }} on {{ brief.created_at[:16].replace("T", " ") }} UTC from analysis version {{ brief.entry_version }}{% if brief.filter %} · filtered: {% for k, v in brief.filter.items() %}{{ k.replace("_", " ") }} {{ v if v is string else v | join(", ") }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}.
@@ -11,9 +12,14 @@
   <h3>{{ s.title }}</h3>
   {% if s.id == "counters" %}<p class="muted">Suggestions from Claude, not observations.</p>{% endif %}
   {% if s.id == "watch" %}<p class="muted">To watch one: open the demo in CS2 (<code>playdemo</code>), then paste its <code>demo_gototick</code> command into the console.</p>{% endif %}
-  <ul class="claims">{% for c in s.claims %}
-    <li>{{ c.text }}<br>{% for f in c.cites %}<span class="chip" title="{{ f.id }}">{{ f.title }}{% if f.k is not none %} · {{ f.k }}/{{ f.n }}{% endif %}</span> {% endfor %}
-      {%- for r in c.rounds or [] %}<span class="chip round" title="{{ r.file or r.demo }}">{{ r.demo }}{% if r.score %} ({{ r.score }}){% endif %} · round {{ r.round }} {{ r.side }} · <code>demo_gototick {{ r.tick }}</code></span> {% endfor %}</li>{% endfor %}
+  <ul class="claims">{% for c in s.claims %}{% set points = c.points or [] %}
+    <li>{% if points %}<strong>{{ c.title }}</strong>
+      <ul class="points">{% for p in points %}<li>{{ p }}</li>{% endfor %}</ul>
+      {%- else %}{{ c.title or c.text }}{% endif %}
+      {%- if s.id == "watch" %}<div>{% for r in c.rounds or [] %}{{ round_chip(r) }} {% endfor %}</div>
+      {%- elif c.cites or c.rounds %}
+      <details class="evidence"><summary>Evidence</summary>{% for f in c.cites %}<span class="chip" title="{{ f.id }}">{{ f.title }}{% if f.k is not none %} · {{ f.k }}/{{ f.n }}{% endif %}</span> {% endfor %}
+        {%- for r in c.rounds or [] %}{{ round_chip(r) }} {% endfor %}</details>{% endif %}</li>{% endfor %}
   </ul>
   {% endfor %}
 </article>

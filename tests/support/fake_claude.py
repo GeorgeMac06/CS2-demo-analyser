@@ -38,21 +38,23 @@ def round_ids(body: dict) -> list[str]:
     return [story.split(" ", 1)[0] for story in sent_payload(body)["rounds"]]
 
 
+def claim(title: str, points: list[str], finding_ids: list[str], rounds: list[str]) -> dict:
+    return {"title": title, "points": points, "finding_ids": finding_ids, "rounds": rounds}
+
+
 def cite_everything(body: dict) -> dict:
-    """A well-behaved answer: one claim per finding (up to 12), each citing its finding, and
-    a pistol round and a round to watch citing round stories."""
+    """A well-behaved answer: an overview line, one play per finding (up to 12), each citing
+    its finding, and a pistol round and a round to watch citing round stories."""
     findings = sent_payload(body)["findings"][:12]
     rounds = round_ids(body)
     return {"sections": [
-        {"id": "t_side", "claims": [{"text": f"They often do this: {f['title']}.",
-                                     "finding_ids": [f["id"]], "rounds": []}
-                                    for f in findings[:8]]},
-        {"id": "pistols", "claims": [{"text": "On the T pistol they rush B together.",
-                                      "finding_ids": [], "rounds": rounds[:1]}]},
-        {"id": "watch", "claims": [{"text": "Watch how the lurker moves at 1:25.",
-                                    "finding_ids": [], "rounds": rounds[1:3]}]},
-        {"id": "counters", "claims": [{"text": "Stack the site they hit most.",
-                                       "finding_ids": [f["id"]], "rounds": []}
+        {"id": "watch", "claims": [claim(f"{rounds[1]}: the lurk", ["Lurker moves at 1:25"],
+                                         [], rounds[1:3])]},
+        {"id": "overview", "claims": [claim("Fast B hits", [], [findings[0]["id"]], [])]},
+        {"id": "t_side", "claims": [claim(f"Play: {f['title']}", ["Usually early", "Lurk mid"],
+                                          [f["id"]], []) for f in findings[:8]]},
+        {"id": "pistols", "claims": [claim("T pistol", ["Rush B together"], [], rounds[:1])]},
+        {"id": "counters", "claims": [claim("Stack the site they hit most", [], [f["id"]], [])
                                       for f in findings[8:]]},
     ]}  # fmt: skip
 

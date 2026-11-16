@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 
 from cs2scout.core.patterns import clock
 from cs2scout.export.inline import leaks
@@ -19,6 +20,13 @@ from cs2scout.export.inline import leaks
 DROPPED_PARAMS = frozenset({"land", "throw", "hit_times_s"})
 FINDING_FIELDS = ("id", "kind", "title", "label", "subject", "params", "support", "outcome",
                   "recency", "flags")  # fmt: skip
+
+
+# What players call the map's place names (owner feedback 2026-11-16: "house" is TV, "shop"
+# is market, "truck" is car). Edit callouts.json to match your team's calls.
+CALLOUTS: dict[str, dict[str, str]] = json.loads(
+    (Path(__file__).parent / "callouts.json").read_text(encoding="utf-8")
+)
 
 
 class PayloadLeak(RuntimeError):
@@ -55,7 +63,7 @@ def build(snapshot: dict, entry: dict, active_filter: dict, stories: list[dict])
     """Only patterns that pass the support rule are sent: weaker ones are noise for a brief.
     Stories are limited to the rounds the filter keeps."""
     kept = {r["ref"] for r in snapshot["round_index"]}
-    return {
+    payload = {
         "team": entry["team"],
         "map": entry["map"],
         "analysis_version": snapshot["entry"]["version"],
@@ -69,6 +77,9 @@ def build(snapshot: dict, entry: dict, active_filter: dict, stories: list[dict])
                      if "below_support" not in f["flags"]],
         "rounds": [s["text"] for s in stories if s["ref"] in kept],
     }  # fmt: skip
+    if entry["map"] in CALLOUTS:
+        payload["callouts"] = CALLOUTS[entry["map"]]
+    return payload
 
 
 def canonical(payload: dict) -> str:
