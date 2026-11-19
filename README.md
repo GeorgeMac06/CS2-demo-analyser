@@ -37,30 +37,6 @@ Times everywhere are the in-game round timer, which shows 1:55 when freeze time 
 4. **Export.** The Export menu downloads one HTML file. Teammates can open it in any browser, offline. You choose the sections, whether to apply the current filters, and whether to include the map images.
 5. **AI brief** (optional, see below).
 
-## Try the economy reads
-
-Use 3 or more demos of one team on one map. A new analysis or an update of an older one both work. An older analysis shows "Update now"; click it, as the economy reads need the new version.
-
-1. Run `uv run cs2scout` and open the analysis.
-2. Open the **Economy** tab. Look for:
-   - **After the pistol:** the buy in the 2nd and 3rd round, split by pistol won or lost. A team that always saves after a lost pistol should show a high k/n there.
-   - **Force or save, by situation:** money a player, score, the round before, last round of a half and facing match point.
-   - **Saving guns in a lost round:** which guns survive a lost round, and who holds them.
-   - **What they buy / How they play on forces and saves**, per side.
-3. Click any k/n. The rounds listed must be the ones counted. Check two or three against the replay or the demo.
-4. Pick a side or buy filter at the top. The numbers on the tab should change and still add up.
-5. Open **T side** or **CT side** and open a round story for a force or save. Its first line ends with the buy and money, for example "force buy, $3,200 a player". Full buys carry no money note.
-6. Use **Export** with the Economy section ticked. The HTML file should show the same tables.
-7. With a Claude API key, make an AI brief. It should mention the pistol-round buys and any forces or saves that repeat.
-
-What to check by hand:
-
-- A round called a **save** should have the team keeping half or more of its cash. A **force** should have no full buy and more than half the cash spent.
-- Pistol rounds (1 and 13) never get a buy label.
-- A gun listed as saved should be in a living player's hands at the round's end, in a round the team lost.
-- Cash in the money bands ($2,000, $3,500, $5,000 a player) looks right for the rounds listed.
-- Nothing shows names of players you did not expect; stand-ins follow the roster you confirmed.
-
 ## Settings
 
 The **Settings** page (top bar) saves these in the workspace:
