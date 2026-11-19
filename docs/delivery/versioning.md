@@ -52,6 +52,11 @@ Two more labels:
 - `breaking`: added next to `semver:minor` for a breaking change while on 0.x.
 - `release`: the PR that changes the version number.
 
+Two workflows use the labels:
+
+- **Version label** (`.github/workflows/pr-labels.yml`) fails until the PR has exactly one `semver:*` label.
+- **Release notes** (`.github/workflows/release-notes.yml`) runs after each merge into `main`. It updates a draft GitHub release, with its notes grouped as Breaking changes, New, Fixes and Other, and the next version worked out from the labels. PRs labelled `semver:none` or `release` are left out. The rules are in `.github/release-drafter.yml`.
+
 ## Other version numbers
 
 These stay separate from the app version. They decide what the app rebuilds, not what users see.
