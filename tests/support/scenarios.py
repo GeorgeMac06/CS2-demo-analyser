@@ -103,3 +103,54 @@ def scouted_match(opp_prefix: str, server: str) -> dict:
     return {"map": "de_mirage", "server": server, "lineups": {"A": TEAM, "B": opp},
             "clan": {"A": "Scouted", "B": f"Opp {opp_prefix}"}, "rounds": rounds,
             "weapons": {TEAM[3]: "awp"}}  # fmt: skip
+
+
+# ---------------------------------------------------------------- economy (issue #6)
+#
+# The same team's money, per player: cash at round start, cash after buying, gear kept.
+# T half: lose the pistol, save r2, full-buy r3; lose a full buy in r5, force r6 (Galils
+# and a Deagle), save r7; force the last round of the half (r12).
+# CT half: win the pistol, force r14 (MP9s); lose a full buy in r18 with a4 (AWP) and a5
+# alive at the end (guns saved); save r19, force r20 (FAMAS), save r22. 13-11 overall.
+ECO_A_WINS = {3, 4, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 24}
+ECO_ROUNDS: dict[int, dict] = {
+    2: {"equipment": 2000, "money": [1600, 1500, 200]},
+    6: {"equipment": 12000, "money": [3000, 200, 200],
+        "loadout": {"a1": "galilar", "a2": "galilar", "a3": "deagle"}},
+    7: {"equipment": 2000, "money": [2500, 2400, 200]},
+    12: {"equipment": 9000, "money": [2600, 100, 200],
+         "loadout": {"a1": "galilar", "a2": "galilar"}},
+    14: {"equipment": 15000, "money": [3500, 800, 1000],
+         "loadout": {"a1": "mp9", "a2": "mp9", "a3": "mp9"}},
+    18: {"savers": ("a4", "a5")},
+    19: {"equipment": 2000, "money": [1800, 1700, 200]},
+    20: {"equipment": 10000, "money": [2900, 300, 200],
+         "loadout": {"a1": "famas", "a2": "famas"}},
+    22: {"equipment": 1500, "money": [1400, 1400, 200]},
+}  # fmt: skip
+
+
+def economy_match(opp_prefix: str, server: str) -> dict:
+    opp = lineup(opp_prefix)
+    rounds = []
+    for n in range(1, 25):
+        spec = ECO_ROUNDS.get(n, {})
+        rnd: dict = {"winner": "A" if n in ECO_A_WINS else "B", "duration": 60}
+        if "equipment" in spec:
+            rnd["equipment"] = {"A": spec["equipment"]}
+        if "money" in spec:
+            rnd["money"] = {"A": spec["money"]}
+        if "loadout" in spec:
+            rnd["loadout"] = spec["loadout"]
+        if rnd["winner"] == "A":
+            rnd["kills"] = [{"t": 40, "attacker": TEAM[n % 5], "victim": opp[n % 5]}]
+        else:  # everyone dies except the players saving their guns
+            rnd["kills"] = [
+                {"t": 30 + i, "attacker": opp[i], "victim": key}
+                for i, key in enumerate(TEAM)
+                if key not in spec.get("savers", ())
+            ]
+        rounds.append(rnd)
+    return {"map": "de_mirage", "server": server, "lineups": {"A": TEAM, "B": opp},
+            "clan": {"A": "Scouted", "B": f"Opp {opp_prefix}"}, "rounds": rounds,
+            "weapons": {TEAM[3]: "awp"}}  # fmt: skip

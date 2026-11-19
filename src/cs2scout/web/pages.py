@@ -21,6 +21,7 @@ from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 
 from cs2scout import __version__
+from cs2scout.core.economy import CHOICES, MONEY_BANDS, PREVIOUS, SCORE_BANDS
 from cs2scout.core.findings import SCHEMA_VERSION, RoundFilter
 from cs2scout.core.grids import PHASES
 from cs2scout.core.patterns import clock
@@ -50,10 +51,10 @@ def _size(n: int | None) -> str:
 
 templates.env.filters["size"] = _size
 templates.env.filters["clock"] = clock  # the in-game round timer
-TABS = ("overview", "t", "ct", "utility", "players", "demos", "brief")
+TABS = ("overview", "t", "ct", "economy", "utility", "players", "demos", "brief")
 BUYS = ("pistol", "eco", "force", "full")
 ROLES = ("core", "standin", "excluded")
-KIND_GROUPS = {"team": "team", "ts": "T side", "ct": "CT side", "util": "utility",
+KIND_GROUPS = {"team": "team", "ts": "T side", "ct": "CT side", "eco": "economy", "util": "utility",
                "plr": "players"}  # fmt: skip
 
 
@@ -271,7 +272,7 @@ def _tab_context(request: Request, entry: dict, tab: str, flt: RoundFilter) -> d
         )
         ctx |= {"winrates": rows, "winrate_fig": winrate_figure(snapshot["findings"]),
                 "heat": _heat_choices(snapshot, "team")}  # fmt: skip
-    elif tab in ("t", "ct", "utility"):
+    elif tab in ("t", "ct", "economy", "utility"):
         ctx |= _pattern_context(snapshot, tab)
     elif tab == "players":
         side = flt.side or "all"
@@ -320,6 +321,8 @@ def _pattern_context(snapshot: dict, tab: str) -> dict:
                 "positions": _visible(f, "ct.position"), "rotations": _visible(f, "ct.rotation"),
                 "duels": _visible(f, "ct.aggression"), "retakes": _visible(f, "ct.retake"),
                 "saves": _visible(f, "ct.save"), "weaker": _weaker(f, "ct.")}  # fmt: skip
+    if tab == "economy":
+        return _economy_context(f, nicks)
     lineups = _visible(f, "util.lineup")
     radar = snapshot.get("radar")
     url = f"/radar/{radar['map']}.png" if radar else None
@@ -330,6 +333,38 @@ def _pattern_context(snapshot: dict, tab: str) -> dict:
         sides.append({"side": side, "top": top, "more": mine[LINEUPS_ON_MAP:],
                       "figure": lineups_figure(top, radar, url) if top else None})  # fmt: skip
     return {"nicks": nicks, "lineup_sides": sides, "weaker": _weaker(f, "util.lineup")}
+
+
+SITUATIONS = [label for _, label in MONEY_BANDS] + list(SCORE_BANDS) + list(PREVIOUS) + [
+    "Last round of a half", "Facing match point"]  # fmt: skip
+SITUATION_GROUPS = (("money", "By money (cash plus kept gear, at round start)"),
+                    ("score", "By score"), ("previous", "After the round before"),
+                    ("moment", "Must-win rounds"))  # fmt: skip
+
+
+def _economy_context(f: list[dict], nicks: dict[str, str]) -> dict:
+    """Economy reads (issue #6), each list in a reading order rather than by size."""
+
+    def order(x: dict) -> tuple:
+        p = x["params"]
+        return (SITUATIONS.index(p["situation"]) if "situation" in p else 0,
+                p.get("after", []), p.get("side", ""), CHOICES.index(p.get("choice", "full")),
+                -x["support"]["k"], x["id"])  # fmt: skip
+
+    situations = sorted(_visible(f, "eco.situation"), key=order)
+    groups = [{"title": title, "items": [x for x in situations
+                                         if x["params"]["group"] == group]}
+              for group, title in SITUATION_GROUPS]  # fmt: skip
+    # New dicts: the findings may be shared with a cached snapshot.
+    exits = [x | {"savers": ", ".join(f"{nicks.get(s['player'], s['player'])} ({s['rounds']})"
+                                      for s in x["params"]["players"]),
+                  "guns": ", ".join(f"{g} ({n})" for g, n in x["params"]["guns"].items())}
+             for x in sorted(_visible(f, "eco.exit"), key=order)]  # fmt: skip
+    return {"nicks": nicks, "pistol": sorted(_visible(f, "eco.pistol"), key=order),
+            "situation_groups": [g for g in groups if g["items"]], "exits": exits,
+            "guns": sorted(_visible(f, "eco.guns"), key=order),
+            "plays": sorted(_visible(f, "eco.play"), key=order),
+            "weaker": _weaker(f, "eco.")}  # fmt: skip
 
 
 def _player_patterns(snapshot: dict) -> dict:

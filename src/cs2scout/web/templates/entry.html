@@ -15,7 +15,7 @@
       <form class="card" method="get" action="/ui/entries/{{ entry.id }}/export" data-export
             aria-label="Export a brief">
         <p class="muted">One HTML file teammates open in any browser, offline.</p>
-        {% for key, label in [("overview", "Overview"), ("t", "T side"), ("ct", "CT side"), ("utility", "Utility"), ("players", "Players")] %}
+        {% for key, label in [("overview", "Overview"), ("t", "T side"), ("ct", "CT side"), ("economy", "Economy"), ("utility", "Utility"), ("players", "Players")] %}
         <label><input type="checkbox" name="sections" value="{{ key }}" checked> {{ label }}</label>{% endfor %}
         {% if fresh_brief %}<label><input type="checkbox" name="sections" value="brief" checked> AI brief</label>{% endif %}
         <p><label><input type="checkbox" name="use_filters"> apply the current filters</label></p>
@@ -65,7 +65,7 @@
 </form>
 
 <nav class="tabs" aria-label="Sections">
-  {% for t, label in [("overview", "Overview"), ("t", "T side"), ("ct", "CT side"), ("utility", "Utility"), ("players", "Players"), ("demos", "Demos"), ("brief", "AI brief")] %}
+  {% for t, label in [("overview", "Overview"), ("t", "T side"), ("ct", "CT side"), ("economy", "Economy"), ("utility", "Utility"), ("players", "Players"), ("demos", "Demos"), ("brief", "AI brief")] %}
   <a href="/entries/{{ entry.id }}?tab={{ t }}" {% if t == tab %}aria-current="page"{% endif %}>{{ label }}</a>
   {% endfor %}
 </nav>

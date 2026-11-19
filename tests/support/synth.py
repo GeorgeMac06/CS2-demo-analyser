@@ -20,7 +20,10 @@ Scenario shape (all keys optional unless marked)::
         "grenades": [{"t": 10, "thrower": "a2", "type": "smoke",
                       "throw": [x, y], "land": [x, y]}],
         "blinds": [{"t": 12, "attacker": "a2", "victim": "b1", "duration": 2.5}],
-        "equipment": {"A": 24000, "B": 4500}}]}
+        "equipment": {"A": 24000, "B": 4500},
+        "money": {"A": [3000, 200, 200]},    # per player: cash at round start, cash after
+                                             # buying, gear kept (default 1000, 1000, 5000)
+        "loadout": {"a1": "galilar", "a3": "deagle"}}]}   # this round's gun per player
 """
 
 from __future__ import annotations
@@ -43,6 +46,8 @@ STEAMID_BASE = 76561190000000000
 SPAWN = {"T": "TSpawn", "CT": "CTSpawn"}
 PISTOL_EQUIPMENT = 4200
 FULL_EQUIPMENT = 25000
+PISTOLS = {"glock", "usp_silencer", "hkp2000", "p250", "tec9", "fiveseven", "cz75a", "deagle",
+           "elite", "revolver"}  # fmt: skip
 
 
 def steamid(key: str) -> int:
@@ -168,18 +173,24 @@ def build_extract(scenario: dict) -> Extract:  # noqa: C901 - a linear table bui
             return current
 
         death_tick = {k["victim"]: at(k["t"]) for k in spec.get("kills", [])}
+        money = spec.get("money", {})
+        loadout = spec.get("loadout", {})
         for t in range(start, official_end, SNAPSHOT_STRIDE_TICKS):
             seconds = (t - freeze_end) / TICK_RATE
             for key in lineup_of:
                 place = place_at(key, seconds)
                 x, y = place_xy(place, key)
                 alive = t < death_tick.get(key, official_end + 1)
+                cash_start, cash_left, gear = (*money.get(lineup_of[key], (1000, 1000)), 5000)[:3]
+                gun = loadout.get(key, weapons.get(key, "ak47"))
                 rec["snapshots"].append({
                     "tick": t, "steamid": steamid(key), "side": player_side[key], "x": x, "y": y,
                     "z": 0.0, "yaw": 0.0, "health": 100 if alive else 0, "armor": 100 if alive
-                    else 0, "active_weapon": weapons.get(key, "ak47"),
-                    "primary_weapon": weapons.get(key, "ak47"), "money": 1000,
-                    "equipment_value": 5000 if alive else 0, "place": place,
+                    else 0, "active_weapon": gun,
+                    "primary_weapon": None if gun in PISTOLS else gun,
+                    "money": cash_start if t < freeze_end else cash_left,
+                    "equipment_value": (gear if t < freeze_end else 5000) if alive else 0,
+                    "place": place,
                 })  # fmt: skip
 
         for k in spec.get("kills", []):

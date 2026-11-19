@@ -385,7 +385,7 @@ def active_filter(flt: RoundFilter) -> dict:
 
 
 class ExportRequest(FilterBody):
-    sections: list[Literal["overview", "t", "ct", "utility", "players", "brief"]] = []
+    sections: list[Literal["overview", "t", "ct", "economy", "utility", "players", "brief"]] = []
     maps: bool = True  # False: leave the radar images out (P-6)
 
 

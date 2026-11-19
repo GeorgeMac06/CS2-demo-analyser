@@ -18,13 +18,14 @@ from pathlib import Path
 import polars as pl
 
 from cs2scout.core.config import AnalysisConfig
+from cs2scout.core.economy import eco_rounds, mine_eco, round_columns
 from cs2scout.core.errors import ErrorCode
 from cs2scout.core.features import assign_rounds, player_rounds
 from cs2scout.core.findings import SCHEMA_VERSION, all_findings, round_index_json
 from cs2scout.core.grids import POSITION_COLUMNS, build_grids, live_positions, project
 from cs2scout.core.labels import carry_over
 from cs2scout.core.maps import Radar
-from cs2scout.core.patterns_ct import ct_rounds, mine_ct, player_ct_summary
+from cs2scout.core.patterns_ct import ct_rounds, mine_ct, player_ct_summary, stack_of
 from cs2scout.core.patterns_t import mine_t, t_rounds
 from cs2scout.core.patterns_util import demo_util, mine_util
 from cs2scout.core.positions import PlaceIndex
@@ -229,7 +230,7 @@ def _analyse(ctx: JobContext, demos: list[LoadedDemo], scouted: dict, roster: li
     rounds_parts, player_parts, position_parts, summaries = [], [], [], []
     stories: list[dict] = []
     nicks = {m["steamid"]: m["nick"] for m in roster}
-    t_obs, ct_obs, util_obs = [], [], []
+    t_obs, ct_obs, util_obs, eco_obs = [], [], [], []
     for i, d in enumerate(demos):
         ctx.check_cancel()
         ctx.progress(phase="analysing", done=i, total=len(demos))
@@ -250,6 +251,11 @@ def _analyse(ctx: JobContext, demos: list[LoadedDemo], scouted: dict, roster: li
         )
         plants = assign_rounds(d.tables["bomb"].filter(pl.col("event") == "finish_plant"), windows)
         rounds = rounds.with_columns(planted=pl.col("ref").is_in(plants["ref"].implode()))
+        # Team money counts every player of the lineup, excluded ones too.
+        eco = eco_rounds(d.tables, rounds, set(d.lineups.members[lineup]),
+                         d.tick_rate)  # fmt: skip
+        eco_obs.extend(eco)
+        rounds = rounds.join(round_columns(eco), on="ref", how="left")
         rounds_parts.append(rounds)
         player_parts.append(player_rounds(d.tables, rounds, members))
         t_list = t_rounds(d.tables, rounds, members, map_name, d.tick_rate, cfg)
@@ -281,6 +287,12 @@ def _analyse(ctx: JobContext, demos: list[LoadedDemo], scouted: dict, roster: li
             mine_t(t_obs, cfg)
             + mine_ct(ct_obs, keys, cfg)
             + mine_util(util_obs, ct_pos, ct_rot, players, keys, map_name, cfg)
+            + mine_eco(
+                eco_obs,
+                {o.ref: (o.site, o.tempo) for o in t_obs},
+                {o.ref: stack_of(o.setup) for o in ct_obs if o.setup},
+                keys,
+            )
         )
         (vdir / "patterns.json").write_text(json.dumps(patterns, sort_keys=True), encoding="utf-8")
         findings = all_findings(rounds, players, roster, patterns, cfg, recent_labels=used[-3:])

@@ -17,7 +17,8 @@ from cs2scout.core.rounds import BUYS
 
 # 2: round-timer titles and per-round stories (2026-11-16). Older versions offer "Update now".
 # 3: routes, the T hit and every kill in the round stories (2026-11-19).
-SCHEMA_VERSION = 3
+# 4: economy reads: force, save or full buy per round, and eco.* patterns (issue #6).
+SCHEMA_VERSION = 4
 SIDES = ("T", "CT")
 
 
@@ -189,9 +190,11 @@ def all_findings(
 
 ROUND_INDEX_FIELDS = (
     "ref", "demo_label", "round_num", "side", "buy", "opp_buy", "score_us", "score_them",
-    "won", "end_reason", "played_at", "is_ot", "planted",
+    "won", "end_reason", "played_at", "is_ot", "planted", "choice", "money_pp",
 )  # fmt: skip
 
 
 def round_index_json(rounds: pl.DataFrame) -> list[dict]:
-    return rounds.select(ROUND_INDEX_FIELDS).sort("played_at", "demo_label", "round_num").to_dicts()
+    # Versions built before the economy reads have no choice or money columns.
+    fields = [f for f in ROUND_INDEX_FIELDS if f in rounds.columns]
+    return rounds.select(fields).sort("played_at", "demo_label", "round_num").to_dicts()
