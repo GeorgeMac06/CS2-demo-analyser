@@ -24,6 +24,7 @@ This repo is public.
 - **When you finish something in chat,** say it informally: what you added, what it looks like, and how to use it. For example: "I added an Economy tab. It shows full, force or save for each round. Open any analysis and click Economy." This is welcome, not required.
 - **Every PR description has a "Try it" section.** Walk the owner through the change in the app: which tab or page to open, what to click, what to look for, and which new setting to try and what it changes. Skip setup steps like checking out the branch or running `uv run cs2scout`; the owner knows those. If there is nothing to see in the app (a refactor, a test), say so in one line. Never use real team or player names in it.
 - **Also in every PR:** what changed, the issue it closes, and which gates ran. Say plainly what was not tested.
+- **Issues:** you may open an issue for a bug, gap or follow-up you find. Never assign it to anyone, yourself included. The owner reads the unassigned issues and decides who takes each one.
 
 ## Commands
 
