@@ -252,7 +252,8 @@ def _analyse(ctx: JobContext, demos: list[LoadedDemo], scouted: dict, roster: li
         rounds = rounds.with_columns(planted=pl.col("ref").is_in(plants["ref"].implode()))
         rounds_parts.append(rounds)
         player_parts.append(player_rounds(d.tables, rounds, members))
-        t_obs.extend(t_rounds(d.tables, rounds, members, map_name, d.tick_rate, cfg))
+        t_list = t_rounds(d.tables, rounds, members, map_name, d.tick_rate, cfg)
+        t_obs.extend(t_list)
         place_index = PlaceIndex(d.tables["snapshots"])
         ct_obs.extend(ct_rounds(d.tables, rounds, members, map_name, d.tick_rate, place_index))
         util_obs.append(demo_util(d.tables, rounds, members, d.tick_rate, place_index))
@@ -261,8 +262,9 @@ def _analyse(ctx: JobContext, demos: list[LoadedDemo], scouted: dict, roster: li
             for r in d.tables["players"].iter_rows(named=True)
             if r["steamid"] in members
         } | {s: n for s, n in nicks.items() if s in members}
+        hits = {o.ref: (o.site, o.hit_s) for o in t_list if o.site and o.hit_s is not None}
         stories.extend(round_stories(d.tables, rounds, members, names, d.tick_rate, place_index,
-                                     cfg.checkpoints_s))  # fmt: skip
+                                     cfg.checkpoints_s, map_name, hits))  # fmt: skip
         position_parts.append(live_positions(
             d.tables["snapshots"].filter(pl.col("steamid").is_in(list(members))), rounds,
             plants.group_by("ref").agg(pl.col("tick").min()), cfg, d.tick_rate,
