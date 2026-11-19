@@ -16,7 +16,8 @@ from cs2scout.core.patterns import recount
 from cs2scout.core.rounds import BUYS
 
 # 2: round-timer titles and per-round stories (2026-11-16). Older versions offer "Update now".
-SCHEMA_VERSION = 2
+# 3: routes, the T hit and every kill in the round stories (2026-11-19).
+SCHEMA_VERSION = 3
 SIDES = ("T", "CT")
 
 
