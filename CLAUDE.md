@@ -26,6 +26,17 @@ This repo is public.
 - **Also in every PR:** what changed, the issue it closes, and which gates ran. Say plainly what was not tested.
 - **Issues:** you may open an issue for a bug, gap or follow-up you find. Never assign it to anyone, yourself included. The owner reads the unassigned issues and decides who takes each one.
 
+## Parallel sessions
+
+The owner often runs several Claude sessions at once, each on its own feature. Assume another session is working right now.
+
+- **Work in your own git worktree,** on a branch cut from `origin/main`. If the session already runs in a worktree, use that one. Don't switch branches, commit, stash, reset or clean in the main checkout: another session may be using it.
+- **Before you push,** run `git log origin/main..HEAD`. It should list only your own commits. If another session's commit is there, stop and tell the owner.
+- **Real demos:** `tests/local_fixtures/` is git-ignored, so a new worktree doesn't have it. Copy it from the main checkout before you run G-demos. Never commit it.
+- **Running the app:** give each session its own `CS2SCOUT_HOME` (a new folder, with demos imported into it) and its own free `CS2SCOUT_PORT`. Two branches can have different schemas, so they must not share a workspace. Never touch the owner's own workspace.
+- **`SCHEMA_VERSION`:** another branch may bump it to the same number. Before your PR merges, merge `main` into your branch and take the next free number. Don't rebase.
+- **Stay in scope:** only change files your feature needs. Shared files (`core/findings.py`, the docs in `docs/`) are where branches collide, so keep edits there small.
+
 ## Commands
 
 ```bash
