@@ -18,6 +18,8 @@ uv sync
 uv run cs2scout assets fetch
 ```
 
+To install a released version without cloning the repo, copy the `.whl` link from the [Releases](https://github.com/GeorgeMac06/CS2-demo-analyser/releases) page, then run `uv tool install <link>` and `cs2scout assets fetch`. After that, start the app with `cs2scout`.
+
 `assets fetch` only needs to run once. It downloads the map radar images and coordinates (about 3 MB) from a pinned awpy-data release, and checks them against pinned SHA-256 hashes. Without them, stats still work, but heatmaps and lineups are not drawn on the map.
 
 ## Run

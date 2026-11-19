@@ -72,6 +72,15 @@ Raising any of them is at least a minor app bump. Raising the library schema wit
 
 ## How a release works
 
-1. Open a "Release X.Y.Z" PR. It runs `uv version X.Y.Z` and has the `release` label. Pick X.Y.Z from the labels of the PRs merged since the last release.
-2. The owner merges it.
-3. The owner publishes a GitHub release with the tag `vX.Y.Z` on `main`. The notes list the merged PRs, with breaking changes first.
+1. Open the draft release on GitHub (Releases). Its title is the next version, `vX.Y.Z`.
+2. Open a "Release X.Y.Z" PR that runs `uv version X.Y.Z`. Give it the `release` and `semver:none` labels. Claude can prepare it.
+3. The owner merges it.
+4. The owner opens the draft, checks the notes and clicks **Publish release**. This creates the tag `vX.Y.Z` on `main`.
+5. The **Release** workflow (`.github/workflows/release.yml`) then:
+   - fails if the tag is not `v` plus the version in `pyproject.toml`, or is not on `main`;
+   - runs G-fast and G-browser on the tag;
+   - builds the wheel and sdist with `uv build` and attaches them to the release.
+
+If the version in `pyproject.toml` already matches the draft, skip steps 2 and 3. This is the case for the first release, `v0.1.0`.
+
+Teammates install a release with `uv tool install <link to the .whl>`. The README shows how.

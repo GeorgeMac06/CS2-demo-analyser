@@ -63,3 +63,4 @@ On Windows, a running `cs2scout.exe` locks the virtual environment, so `uv sync`
 - Every PR into `main` gets exactly one label: `semver:minor`, `semver:patch` or `semver:none`. `docs/delivery/versioning.md` says which. While on 0.x, a breaking change also gets `breaking`.
 - A `SCHEMA_VERSION` bump means at least `semver:minor`.
 - Only a PR with the `release` label changes `version` in `pyproject.toml`. Use `uv version X.Y.Z`.
+- To prepare a release: take X.Y.Z from the draft release on GitHub, then open a "Release X.Y.Z" PR with the `release` and `semver:none` labels. The owner merges it and publishes the draft. `release.yml` then checks the tag, runs the gates and attaches the wheel.
