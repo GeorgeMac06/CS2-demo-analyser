@@ -53,4 +53,11 @@ On Windows, a running `cs2scout.exe` locks the virtual environment, so `uv sync`
 - `docs/product/requirements.md`: requirements (FR-xx) and acceptance tests (AT-xx).
 - `docs/architecture/target-design.md`: the design. When the design changes, add a dated "Changed" note there.
 - `docs/delivery/delivery-plan.md`: work units and milestones.
+- `docs/delivery/versioning.md`: semantic versioning, the PR labels and how a release works.
 - Write UI text, docs, commit messages and PR descriptions in plain, short sentences.
+
+## Versions
+
+- Every PR into `main` gets exactly one label: `semver:minor`, `semver:patch` or `semver:none`. `docs/delivery/versioning.md` says which. While on 0.x, a breaking change also gets `breaking`.
+- A `SCHEMA_VERSION` bump means at least `semver:minor`.
+- Only a PR with the `release` label changes `version` in `pyproject.toml`. Use `uv version X.Y.Z`.

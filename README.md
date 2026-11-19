@@ -6,7 +6,8 @@ Status: v1 feature-complete (WU-0 to WU-16). Milestone M3 still needs the owner'
 
 - Requirements: `docs/product/requirements.md`
 - Architecture: `docs/architecture/` (baseline, target design, ADRs)
-- Delivery: `docs/delivery/` (delivery plan, test strategy)
+- Delivery: `docs/delivery/` (delivery plan, test strategy, versioning)
+- Versions and what changed in each: [Releases](https://github.com/GeorgeMac06/CS2-demo-analyser/releases). `uv run cs2scout --version` shows the version you have.
 
 ## Install
 
