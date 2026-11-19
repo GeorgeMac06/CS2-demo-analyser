@@ -60,7 +60,16 @@ Priority: **H** means wrong scouting conclusions, data loss or a data leak. **M*
 
 **Order within a run:** G-fast first (seconds), then G-demos (minutes, sequential parsing by design), then G-browser.
 
-There is no CI yet, so gates are run locally. Adding CI is a trigger for `ln-63` and is not in this plan.
+**Where gates run** (CI added 2026-11-19, `.github/workflows/ci.yml`):
+
+| Gate | On the owner's PC | In GitHub Actions |
+|---|---|---|
+| G-fast | Pre-commit hook | Every PR and every push to `main`, on Windows |
+| G-browser | By hand | Every PR and every push to `main`, on Ubuntu with Chromium |
+| G-demos | By hand | Never. Real demos contain SteamIDs and must not be uploaded. |
+| Hygiene | — | Every PR. Fails if the PR adds demos, archives, `tests/local_fixtures/` files or a real-looking SteamID (`.github/scripts/hygiene.sh`). |
+
+So every PR must still say whether G-demos ran.
 
 ## 4. Test data and privacy
 

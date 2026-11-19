@@ -31,6 +31,8 @@ git config core.hooksPath .githooks  # once per clone: the pre-commit hook runs 
 | G-demos | `uv run pytest -m demos --require-demos` | Needs real demos in `tests/local_fixtures/demos/`. |
 | G-browser | `uv run pytest -m browser` | Needs `uv run playwright install chromium` once. |
 
+CI (`.github/workflows/ci.yml`) runs G-fast and G-browser on every PR, including the GitHub App's, plus a hygiene check. The hygiene check fails if a PR adds demos, archives, `tests/local_fixtures/` files or a real-looking SteamID. A made-up SteamID in a test can stay if its line has the comment `hygiene: allow`. G-demos never runs in CI, so every PR says whether it ran.
+
 On Windows, a running `cs2scout.exe` locks the virtual environment, so `uv sync` fails. Use `uv run --no-sync`, commit with `UV_NO_SYNC=1`, and add packages with `uv add --no-sync` followed by `uv pip install`.
 
 ## Code

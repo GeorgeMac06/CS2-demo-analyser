@@ -109,6 +109,8 @@ git config core.hooksPath .githooks
 | G-demos | `uv run pytest -m demos --require-demos` (needs `tests/local_fixtures/`, not in git) |
 | G-browser | `uv run pytest -m browser` (one-time setup: `uv run playwright install chromium`) |
 
+GitHub Actions runs G-fast and G-browser on every pull request. It also runs a hygiene check that refuses demos and real-looking SteamIDs. G-demos runs only on a PC that has the demos.
+
 Real demos go in `tests/local_fixtures/demos/`. That folder is never committed, because demos contain real players' SteamIDs. No scoreboard data is needed: the accuracy tests check our stats against the server's own counters, which are recorded in each demo.
 
 The AI tests run the real Anthropic SDK against a fake HTTP transport, so they need no key and make no network calls.

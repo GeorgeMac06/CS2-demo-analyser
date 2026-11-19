@@ -1,0 +1,9 @@
+version: 2
+updates:
+  # GitHub Actions only. Python dependencies stay manual: an awpy bump needs G-demos.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels:
+      - "semver:none"

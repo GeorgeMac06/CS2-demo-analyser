@@ -1,0 +1,70 @@
+name: CI
+
+# G-fast and G-browser on every PR and on main. G-demos needs real demos, so it only runs
+# on the owner's PC (docs/delivery/test-strategy.md §3). release.yml also calls this workflow.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  g-fast:
+    name: G-fast
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.8"
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run --no-sync ruff format --check .
+      - run: uv run --no-sync ruff check .
+      - run: uv run --no-sync lint-imports
+      - run: uv run --no-sync pytest -n auto
+
+  g-browser:
+    name: G-browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.8"
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run --no-sync playwright install --with-deps chromium
+      - run: uv run --no-sync pytest -m browser
+
+  hygiene:
+    name: Hygiene
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: No demos, local fixtures or real-looking SteamIDs
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: bash .github/scripts/hygiene.sh "origin/$BASE_REF"
