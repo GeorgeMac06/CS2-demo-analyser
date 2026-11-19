@@ -9,3 +9,7 @@ tests/local_fixtures/
 *.dem.gz
 *.dem.zst
 *.zip
+
+# Local Claude Code files: machine-specific paths
+.claude/launch.json
+.claude/settings.local.json
