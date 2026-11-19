@@ -111,3 +111,5 @@ git config core.hooksPath .githooks
 Real demos go in `tests/local_fixtures/demos/`. That folder is never committed, because demos contain real players' SteamIDs. No scoreboard data is needed: the accuracy tests check our stats against the server's own counters, which are recorded in each demo.
 
 The AI tests run the real Anthropic SDK against a fake HTTP transport, so they need no key and make no network calls.
+
+Diagrams of how the app works (journeys, import, analysis, state machines, data model) are in [docs/workflows](docs/workflows/README.md).

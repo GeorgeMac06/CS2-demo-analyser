@@ -6,6 +6,7 @@
 | Owner | Repository owner |
 | Inputs | [Product requirements](../product/requirements.md) (FR-\*, D1–D8, DEP-\*, C-\*, Q1–Q7) and [System design baseline](system-design-baseline.md) (DRV-\*, QS-\*, U-\*) |
 | Current state | Greenfield. The repository contains docs only. Prior art: the owner's `ESEA-Analyst` project used `demoparser2` for kill events. No code from it is reused. |
+| Diagrams | [Workflows](../workflows/README.md): the flows and state machines as built. |
 
 **Labels used in this document:**
 - **[F]** fact, from a cited source.
