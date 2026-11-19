@@ -15,8 +15,15 @@ This repo is public.
 
 ## Who works on what
 
-- **Issues assigned to `gmac-claude`** are for Claude Code on the owner's PC. That copy has the real demos and runs every gate. It reads GitHub but never pushes, comments or opens PRs: it commits on a local branch and the owner pushes.
+- **Issues assigned to `gmac-claude`** are for Claude Code on the owner's PC. That copy has the real demos and runs every gate. It commits on a feature branch. When the branch is ready and the gates pass, it pushes the branch and opens a PR without asking first. It does not merge, and it does not comment on issues or PRs unless asked.
 - **The Claude GitHub App** (`@claude` in an issue or PR) runs in GitHub Actions. Its current workflow cannot run the gates, so its PRs must say what was not tested.
+
+## Working with the owner
+
+- **Reviews happen in GitHub.** Don't wait for a go-ahead to push and open a PR. If the work is ready, open it. The owner reviews and merges.
+- **When you finish something in chat,** say it informally: what you added, what it looks like, and how to use it. For example: "I added an Economy tab. It shows full, force or save for each round. Open any analysis and click Economy." This is welcome, not required.
+- **Every PR description has a "Try it" section.** Walk the owner through the change in the app: which tab or page to open, what to click, what to look for, and which new setting to try and what it changes. Skip setup steps like checking out the branch or running `uv run cs2scout`; the owner knows those. If there is nothing to see in the app (a refactor, a test), say so in one line. Never use real team or player names in it.
+- **Also in every PR:** what changed, the issue it closes, and which gates ran. Say plainly what was not tested.
 
 ## Commands
 
