@@ -6,7 +6,8 @@ Status: v1 feature-complete (WU-0 to WU-16). Milestone M3 still needs the owner'
 
 - Requirements: `docs/product/requirements.md`
 - Architecture: `docs/architecture/` (baseline, target design, ADRs)
-- Delivery: `docs/delivery/` (delivery plan, test strategy)
+- Delivery: `docs/delivery/` (delivery plan, test strategy, versioning)
+- Versions and what changed in each: [Releases](https://github.com/GeorgeMac06/CS2-demo-analyser/releases). `uv run cs2scout --version` shows the version you have.
 
 ## Install
 
@@ -16,6 +17,8 @@ You need Windows 11 and [uv](https://docs.astral.sh/uv/). uv installs Python 3.1
 uv sync
 uv run cs2scout assets fetch
 ```
+
+To install a released version without cloning the repo, copy the `.whl` link from the [Releases](https://github.com/GeorgeMac06/CS2-demo-analyser/releases) page, then run `uv tool install <link>` and `cs2scout assets fetch`. After that, start the app with `cs2scout`.
 
 `assets fetch` only needs to run once. It downloads the map radar images and coordinates (about 3 MB) from a pinned awpy-data release, and checks them against pinned SHA-256 hashes. Without them, stats still work, but heatmaps and lineups are not drawn on the map.
 
@@ -107,6 +110,8 @@ git config core.hooksPath .githooks
 | G-fast | `uv run ruff format --check . && uv run ruff check . && uv run lint-imports && uv run pytest -n 8` |
 | G-demos | `uv run pytest -m demos --require-demos` (needs `tests/local_fixtures/`, not in git) |
 | G-browser | `uv run pytest -m browser` (one-time setup: `uv run playwright install chromium`) |
+
+GitHub Actions runs G-fast and G-browser on every pull request. It also runs a hygiene check that refuses demos and real-looking SteamIDs. G-demos runs only on a PC that has the demos.
 
 Real demos go in `tests/local_fixtures/demos/`. That folder is never committed, because demos contain real players' SteamIDs. No scoreboard data is needed: the accuracy tests check our stats against the server's own counters, which are recorded in each demo.
 

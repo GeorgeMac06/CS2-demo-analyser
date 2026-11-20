@@ -1,0 +1,31 @@
+name: PR labels
+
+# Every PR into main needs exactly one semver label (docs/delivery/versioning.md).
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, labeled, unlabeled, synchronize]
+
+permissions:
+  issues: read
+  pull-requests: read
+
+jobs:
+  version-label:
+    name: Version label
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: mheap/github-action-required-labels@23e10fde7e062233401931a0eece796cd9bf3177 # v5.6.0
+        with:
+          mode: exactly
+          count: 1
+          labels: |
+            semver:major
+            semver:minor
+            semver:patch
+            semver:none
+          message: >-
+            This PR needs exactly one of these labels: {{ provided }}.
+            It has: {{ applied }}. See docs/delivery/versioning.md.

@@ -1,0 +1,26 @@
+name: Release notes
+
+# After each merge, update the draft GitHub release: its notes and its next version.
+# The rules are in .github/release-drafter.yml.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: release-notes
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    name: Update the draft release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: release-drafter/release-drafter@d1a19e60e81a7e650d00a7de9277f87e439117ea # v7.11.0
+        with:
+          config-name: release-drafter.yml

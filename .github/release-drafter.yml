@@ -1,0 +1,43 @@
+# Release Drafter rules (docs/delivery/versioning.md).
+# The draft's version comes from the labels of the PRs merged since the last release.
+
+name-template: "v$RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
+change-template: "- $TITLE (#$NUMBER)"
+change-title-escapes: '\<*_&@'
+
+categories:
+  # Left out of the notes: no release needed, or the version bump itself.
+  - type: pre-exclude
+    when:
+      labels: ["semver:none", "release"]
+
+  # Sections of the notes. A PR shows in the first one it matches.
+  - title: "Breaking changes"
+    exclusive: true
+    when:
+      labels: ["breaking", "semver:major"]
+  - title: "New"
+    exclusive: true
+    when:
+      label: "semver:minor"
+  - title: "Fixes"
+    exclusive: true
+    when:
+      label: "semver:patch"
+  - title: "Other"
+
+  # The next version. The highest match wins. Under 0.x, breaking changes use semver:minor.
+  - type: version-resolver
+    semver-increment: major
+    when:
+      label: "semver:major"
+  - type: version-resolver
+    semver-increment: minor
+    when:
+      label: "semver:minor"
+  - type: version-resolver
+    semver-increment: patch
+
+template: |
+  $CHANGES

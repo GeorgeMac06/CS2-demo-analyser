@@ -31,6 +31,8 @@ git config core.hooksPath .githooks  # once per clone: the pre-commit hook runs 
 | G-demos | `uv run pytest -m demos --require-demos` | Needs real demos in `tests/local_fixtures/demos/`. |
 | G-browser | `uv run pytest -m browser` | Needs `uv run playwright install chromium` once. |
 
+CI (`.github/workflows/ci.yml`) runs G-fast and G-browser on every PR, including the GitHub App's, plus a hygiene check. The hygiene check fails if a PR adds demos, archives, `tests/local_fixtures/` files or a real-looking SteamID. A made-up SteamID in a test can stay if its line has the comment `hygiene: allow`. G-demos never runs in CI, so every PR says whether it ran.
+
 On Windows, a running `cs2scout.exe` locks the virtual environment, so `uv sync` fails. Use `uv run --no-sync`, commit with `UV_NO_SYNC=1`, and add packages with `uv add --no-sync` followed by `uv pip install`.
 
 ## Code
@@ -53,4 +55,12 @@ On Windows, a running `cs2scout.exe` locks the virtual environment, so `uv sync`
 - `docs/product/requirements.md`: requirements (FR-xx) and acceptance tests (AT-xx).
 - `docs/architecture/target-design.md`: the design. When the design changes, add a dated "Changed" note there.
 - `docs/delivery/delivery-plan.md`: work units and milestones.
+- `docs/delivery/versioning.md`: semantic versioning, the PR labels and how a release works.
 - Write UI text, docs, commit messages and PR descriptions in plain, short sentences.
+
+## Versions
+
+- Every PR into `main` gets exactly one label: `semver:minor`, `semver:patch` or `semver:none`. `docs/delivery/versioning.md` says which. While on 0.x, a breaking change also gets `breaking`.
+- A `SCHEMA_VERSION` bump means at least `semver:minor`.
+- Only a PR with the `release` label changes `version` in `pyproject.toml`. Use `uv version X.Y.Z`.
+- To prepare a release: take X.Y.Z from the draft release on GitHub, then open a "Release X.Y.Z" PR with the `release` and `semver:none` labels. The owner merges it and publishes the draft. `release.yml` then checks the tag, runs the gates and attaches the wheel.
