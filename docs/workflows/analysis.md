@@ -1,7 +1,8 @@
 # Analysis
 
 How cached extracts become a version with findings, round stories and heatmaps. Code:
-`jobs/analysis.py` (`run_recompute`, `_analyse`), `core/*`, `web/findings_view.py`.
+`jobs/analysis.py` (`run_recompute`, `_analyse`), `core/*` (economy reads in `core/economy.py`),
+`web/findings_view.py`.
 Design: target design §5.3 and §6.2–6.3.
 
 ## What starts a recompute
@@ -37,10 +38,13 @@ flowchart TD
   S3 -->|no lineup matches| TNF["Demo marked TEAM_NOT_FOUND<br/>left out"]
   S3 --> S4["S4 Per-demo features<br/>core.rounds: team_rounds, buy class<br/>core.features: player_rounds, plants"]
   CFG --> S4
+  S4 --> ECO["eco_rounds<br/>cash and kept gear at round start,<br/>cash after buying; whole lineup"]
+  ECO -->|"round_columns: buy_type, money_pp"| S4
   S4 --> OBS["Observations<br/>t_rounds, ct_rounds, demo_util"]
   S4 --> ST["round_stories<br/>places at checkpoints, utility, opening duel, plant"]
   S4 --> POS["live_positions"]
-  OBS --> S5["S5 Patterns<br/>mine_t, mine_ct, mine_util"]
+  OBS --> S5["S5 Patterns<br/>mine_t, mine_ct, mine_util, mine_eco"]
+  ECO --> S5
   CFG --> S5
   S5 --> S6["S6 Findings<br/>all_findings: k of n, round_refs, flags"]
   POS --> GR["project + build_grids<br/>64×64 heatmaps"]
@@ -99,13 +103,17 @@ Pages, the export and the AI brief all read a filtered view of the same snapshot
 flowchart LR
   A["findings.json<br/>current version"] --> B["RoundFilter<br/>side, buy, opp buy, demos, dates, overtime"]
   B --> C["Restrict rounds.parquet"]
-  C --> D["all_findings again on the stored patterns<br/>k of n recounted from round_refs"]
+  C --> D["all_findings again on the stored patterns<br/>k of n recounted from round_refs<br/>n from eligible_refs where a pattern has them"]
   D --> E["Same thresholds as the version<br/>config.json, not today's settings"]
   E --> F["Overlay user labels"]
   F --> G1["Entry page tabs"]
   F --> G2["HTML export"]
   F --> G3["AI brief payload"]
 ```
+
+Most patterns define their eligible rounds by a rule, such as T side on a full buy. An economy
+read like "the round after a lost pistol" cannot be written as a rule. Those patterns carry
+`eligible_refs`, and the recount keeps the ones in view.
 
 Results are cached in memory per version and filter (`findings_view.filtered_snapshot`).
 Because patterns are mined on the full set, a pattern keeps its id and its label under any

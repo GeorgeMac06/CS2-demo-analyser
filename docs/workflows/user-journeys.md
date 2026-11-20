@@ -64,7 +64,7 @@ demo's lineup or date, or edit the roster.
 flowchart TD
   A["Entry page"] --> B{"Version older than SCHEMA_VERSION<br/>or built with other thresholds?"}
   B -->|Yes| U["Banner: Update now → recompute job"]
-  B -->|No| C["Tabs: Overview, T, CT, Utility, Players, Demos, AI brief"]
+  B -->|No| C["Tabs: Overview, T, CT, Economy, Utility,<br/>Players, Demos, AI brief"]
   U --> C
   C --> D["Filter: buy, opponent buy, demos, dates, overtime"]
   D --> E["Findings recounted in memory<br/>k of n changes, pattern identity does not"]
