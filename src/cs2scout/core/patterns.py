@@ -25,14 +25,21 @@ def stable_key(*parts) -> str:
 
 
 def pattern(kind: str, key_parts: tuple, subject: str, title: str, params: dict,
-            eligible: dict, refs: Iterable[str], stat: bool = False) -> dict:  # fmt: skip
+            eligible: dict, refs: Iterable[str], stat: bool = False,
+            eligible_refs: Iterable[str] | None = None) -> dict:  # fmt: skip
     """``stat=True``: a per-player measure, not a team pattern. Its share of all rounds is not
     meaningful (a habit is "3 of 12 opening duels", not "3 of 45 rounds"), so only the
-    minimum count applies."""
+    minimum count applies.
+
+    ``eligible_refs``: the rounds that make up ``n`` when no ``eligible`` rule can say which
+    they are (e.g. "the round after a lost pistol"). A view keeps those of them it shows."""
     key = stable_key(kind, subject, *key_parts)
-    return {"id": f"{kind}.{subject}.{key}", "kind": kind, "subject": subject,
-            "stable_key": key, "title": title, "params": params, "eligible": eligible,
-            "all_refs": sorted(set(refs)), "stat": stat}  # fmt: skip
+    out = {"id": f"{kind}.{subject}.{key}", "kind": kind, "subject": subject,
+           "stable_key": key, "title": title, "params": params, "eligible": eligible,
+           "all_refs": sorted(set(refs)), "stat": stat}  # fmt: skip
+    if eligible_refs is not None:
+        out["eligible_refs"] = sorted(set(eligible_refs))
+    return out
 
 
 def passes(k: int, n: int, cfg: AnalysisConfig, demos: int | None = None) -> bool:
@@ -47,9 +54,11 @@ def recount(patterns: list[dict], rounds: pl.DataFrame, player_refs: dict[str, s
     out = []
     for p in patterns:
         elig = p["eligible"]
+        only = set(p["eligible_refs"]) if "eligible_refs" in p else None
         eligible = [
             ref for ref, r in by_ref.items()
-            if elig.get("side") in (None, r["side"]) and elig.get("buy") in (None, r["buy"])
+            if (only is None or ref in only)
+            and elig.get("side") in (None, r["side"]) and elig.get("buy") in (None, r["buy"])
             and (not elig.get("planted") or r["planted"])
             and (elig.get("player") is None or ref in player_refs.get(elig["player"], set()))
         ]  # fmt: skip

@@ -1,0 +1,42 @@
+{% import "_macros.html" as m with context %}
+{% set eid = entry.id %}
+
+<p class="muted">Each round outside the pistols is a <strong>full buy</strong> (team equipment reaches the "full" line in Settings),
+  a <strong>force buy</strong> (no full buy, and they spent more than half their cash) or a <strong>save</strong> (they kept half or more).
+  This can differ from the buy filter above, which looks at equipment value only.</p>
+
+<h2>After the pistol</h2>
+{{ m.pattern_table(eid, pistol, "Round after a pistol") }}
+
+<h2>Force or save, by situation</h2>
+{% for g in situation_groups %}
+<h3>{{ g.title }}</h3>
+{{ m.pattern_table(eid, g["items"], "Situation and buy") }}
+{% else %}
+<p class="muted">Nothing here reaches the support threshold yet (3+ rounds, 10% of eligible rounds, 2+ demos).</p>
+{% endfor %}
+
+<h2>Saving guns in a lost round</h2>
+{% if exits %}
+<div class="card table-wrap">
+  <table>
+    <caption class="sr-only">Rounds they lost after buying, with someone still alive holding a gun</caption>
+    <thead><tr><th>Side</th><th>Rounds</th><th class="num">Demos</th><th>Guns kept</th><th>Who</th></tr></thead>
+    <tbody>
+    {% for f in exits %}
+      <tr><td class="side-{{ f.params.side }}">{{ f.params.side }}</td><td>{{ m.support(eid, f) }}</td>
+        <td class="num">{{ f.support.demos }}</td><td>{{ f.guns }}</td><td class="muted">{{ f.savers }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="muted">Out of the rounds they lost on a force or full buy. Expect those guns in the next round.</p>
+{% else %}<p class="muted">They do not save guns often enough to show.</p>{% endif %}
+
+<h2>What they buy on forces and saves</h2>
+{{ m.pattern_table(eid, guns, "Side, buy and gun") }}
+
+<h2>How they play on forces and saves</h2>
+{{ m.pattern_table(eid, plays, "Side, buy and play") }}
+
+{{ m.weaker(eid, weaker) }}

@@ -33,7 +33,7 @@ Times everywhere are the in-game round timer, which shows 1:55 when freeze time 
 
 1. **New analysis.** Drop `.dem`, `.dem.gz`, `.dem.bz2` or `.zip` files (FACEIT and ESEA downloads work as they are), or paste a folder path. The app finds the team that appears in every demo. You confirm the roster, marking stand-ins and anyone to leave out.
 2. **Add demos** as the season goes on. Only new demos are parsed. Each update is a new version of the analysis, and labels you gave to patterns carry over to it.
-3. **Explore.** The tabs are Overview, T side, CT side, Utility, Players and Demos. Use the filters for side, buy type, dates and overtime. Every number is shown as "k/n" (seen in k of n eligible rounds); click it to list those rounds. Name any pattern with ✎.
+3. **Explore.** The tabs are Overview, T side, CT side, Economy, Utility, Players and Demos. Use the filters for side, buy type, dates and overtime. Every number is shown as "k/n" (seen in k of n eligible rounds); click it to list those rounds. Name any pattern with ✎.
 4. **Export.** The Export menu downloads one HTML file. Teammates can open it in any browser, offline. You choose the sections, whether to apply the current filters, and whether to include the map images.
 5. **AI brief** (optional, see below).
 

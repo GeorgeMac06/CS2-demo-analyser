@@ -149,6 +149,16 @@ def _rotations(mine: pl.DataFrame, tick0: int, site: str, tick_rate: float, zone
     return result
 
 
+STACK_TITLES = {"standard": "Standard spread (no 3-man stack)"}
+
+
+def stack_of(setup: tuple) -> str:
+    """'A stack' or 'B stack' (3+ players on the site at 1:35), else 'standard'."""
+    groups = dict(setup)
+    a, b = groups.get("A", 0), groups.get("B", 0)
+    return "A stack" if a >= 3 else "B stack" if b >= 3 else "standard"
+
+
 def mine_ct(rounds: list[CTRound], keys: dict[int, str], cfg: AnalysisConfig) -> list[dict]:
     out: list[dict] = []
     side = {"side": "CT"}
@@ -166,11 +176,9 @@ def mine_ct(rounds: list[CTRound], keys: dict[int, str], cfg: AnalysisConfig) ->
     stacks: dict[str, list[str]] = defaultdict(list)
     for r in rounds:
         if r.setup:
-            groups = dict(r.setup)
-            a, b = groups.get("A", 0), groups.get("B", 0)
-            stacks["A stack" if a >= 3 else "B stack" if b >= 3 else "standard"].append(r.ref)
+            stacks[stack_of(r.setup)].append(r.ref)
     for kind, refs in stacks.items():
-        title = "Standard spread (no 3-man stack)" if kind == "standard" else f"{kind} (3+ players)"
+        title = STACK_TITLES.get(kind, f"{kind} (3+ players)")
         out.append(pattern("ct.stack", (kind,), "team", title, {"stack": kind}, side, refs))
 
     for steamid, key in keys.items():

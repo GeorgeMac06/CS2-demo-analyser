@@ -378,6 +378,12 @@ The thresholds below come from `AnalysisConfig`. The defaults are Q2 and Q3 from
   - **Layer 1:** each pattern's `stable_key` is a hash of its defining params. Examples: the site + timing band + modal setup signature, or the lineup's cell-rounded centroid.
   - **Layer 2:** after a recompute, new and old patterns of the same kind are matched by member-round Jaccard ≥ 0.5. A match inherits the user label.
   - Labels that match nothing are kept as orphans in `label` and are not shown.
+- **Economy (FR-ECO-1..4), added 2026-11-19 (issue #6):** `core/economy.py`.
+  - Team cash and kept gear come from the first snapshot at or after the round start (before freeze end), and cash after buying from the first snapshot at freeze end. Team money counts every player of the lineup, excluded ones too.
+  - The round's buy type is full / force / save (FR-ECO intro). A round whose cash before buying was not seen gets no buy type. The buy type and money a player join the round index; a force or save also goes into the round story's header.
+  - Survivors of a lost round come from the kill list: the last death often falls between two snapshots.
+  - A situation such as "the round after a lost pistol" cannot be written as an `eligible` rule, so a pattern may carry `eligible_refs`: its n is those rounds, and `recount` keeps the ones in view.
+  - Snapshot `schema_version` 5 marks versions with economy reads; older versions offer "Update now".
 - **Heatmap grids (FR-PLR-3):** 64×64 kernel density per (subject, side, phase) on radar coordinates. Phases are early (< 20 s), mid (20–60 s), late (> 60 s, pre-plant) and post-plant. They are precomputed in S6, so the UI and the export both render grids, not raw points.
 
 ### 6.4 Export (FR-EXP-1..3, QS-5)
