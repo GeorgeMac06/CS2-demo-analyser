@@ -15,8 +15,27 @@ This repo is public.
 
 ## Who works on what
 
-- **Issues assigned to `gmac-claude`** are for Claude Code on the owner's PC. That copy has the real demos and runs every gate. It reads GitHub but never pushes, comments or opens PRs: it commits on a local branch and the owner pushes.
+- **Issues assigned to `gmac-claude`** are for Claude Code on the owner's PC. That copy has the real demos and runs every gate. It commits on a feature branch. When the branch is ready and the gates pass, it pushes the branch and opens a PR without asking first. It does not merge, and it does not comment on issues or PRs unless asked.
 - **The Claude GitHub App** (`@claude` in an issue or PR) runs in GitHub Actions. Its current workflow cannot run the gates, so its PRs must say what was not tested.
+
+## Working with the owner
+
+- **Reviews happen in GitHub.** Don't wait for a go-ahead to push and open a PR. If the work is ready, open it. The owner reviews and merges.
+- **When you finish something in chat,** say it informally: what you added, what it looks like, and how to use it. For example: "I added an Economy tab. It shows full, force or save for each round. Open any analysis and click Economy." This is welcome, not required.
+- **Every PR description has a "Try it" section.** Walk the owner through the change in the app: which tab or page to open, what to click, what to look for, and which new setting to try and what it changes. Skip setup steps like checking out the branch or running `uv run cs2scout`; the owner knows those. If there is nothing to see in the app (a refactor, a test), say so in one line. Never use real team or player names in it.
+- **Also in every PR:** what changed, the issue it closes, and which gates ran. Say plainly what was not tested.
+- **Issues:** you may open an issue for a bug, gap or follow-up you find. Never assign it to anyone, yourself included. The owner reads the unassigned issues and decides who takes each one.
+
+## Parallel sessions
+
+The owner often runs several Claude sessions at once, each on its own feature. Assume another session is working right now.
+
+- **Work in your own git worktree,** on a branch cut from `origin/main`. If the session already runs in a worktree, use that one. Don't switch branches, commit, stash, reset or clean in the main checkout: another session may be using it.
+- **Before you push,** run `git log origin/main..HEAD`. It should list only your own commits. If another session's commit is there, stop and tell the owner.
+- **Real demos:** `tests/local_fixtures/` is git-ignored, so a new worktree doesn't have it. Copy it from the main checkout before you run G-demos. Never commit it.
+- **Running the app:** give each session its own `CS2SCOUT_HOME` (a new folder, with demos imported into it) and its own free `CS2SCOUT_PORT`. Two branches can have different schemas, so they must not share a workspace. Never touch the owner's own workspace.
+- **`SCHEMA_VERSION`:** another branch may bump it to the same number. Before your PR merges, merge `main` into your branch and take the next free number. Don't rebase.
+- **Stay in scope:** only change files your feature needs. Shared files (`core/findings.py`, the docs in `docs/`) are where branches collide, so keep edits there small.
 
 ## Commands
 
