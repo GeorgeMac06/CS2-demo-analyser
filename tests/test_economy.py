@@ -10,7 +10,7 @@ import json
 import pytest
 
 from cs2scout.ai.payload import build
-from cs2scout.core.economy import choice_of, half_start, money_band
+from cs2scout.core.economy import buy_type_of, half_start, money_band
 from support.api import Api, make_api
 from support.scenarios import economy_match
 from support.synth import write_demo
@@ -36,24 +36,24 @@ def one(snapshot: dict, kind: str, title: str) -> dict:
     return found[0]
 
 
-def test_choice_rules() -> None:
-    assert choice_of("pistol", 4000, 0) is None
-    assert choice_of("full", None, 0) == "full"  # kept rifles: no need to see the cash
-    assert choice_of("eco", 8000, 7500) == "save" and choice_of("force", 15000, 1000) == "force"
-    assert choice_of("force", 10000, 5000) == "save"  # kept half: a save with armor
-    assert choice_of("eco", None, 0) is None  # cash before buying not seen: no guess
+def test_buy_type_rules() -> None:
+    assert buy_type_of("pistol", 4000, 0) is None
+    assert buy_type_of("full", None, 0) == "full"  # kept rifles: no need to see the cash
+    assert buy_type_of("eco", 8000, 7500) == "save" and buy_type_of("force", 15000, 1000) == "force"
+    assert buy_type_of("force", 10000, 5000) == "save"  # kept half: a save with armor
+    assert buy_type_of("eco", None, 0) is None  # cash before buying not seen: no guess
     assert [n for n in range(1, 35) if half_start(n)] == [1, 13, 25, 28, 31, 34]
     assert money_band(1999) == "Under $2,000 a player" and money_band(5000) == "$5,000+ a player"
 
 
-def test_each_round_gets_its_choice_and_money(eco) -> None:
+def test_each_round_gets_its_buy_type_and_money(eco) -> None:
     api, entry = eco
     index = api.findings(entry)["round_index"]
     rounds = {r["round_num"]: r for r in index if r["demo_label"] == index[0]["demo_label"]}
-    choices = {n: r["choice"] for n, r in rounds.items()}
-    assert choices[1] is None and choices[13] is None  # pistols are not a choice
-    assert [n for n, c in choices.items() if c == "save"] == [2, 7, 19, 22]
-    assert [n for n, c in choices.items() if c == "force"] == [6, 12, 14, 20]
+    buy_types = {n: r["buy_type"] for n, r in rounds.items()}
+    assert buy_types[1] is None and buy_types[13] is None  # pistols are not a buy_type
+    assert [n for n, c in buy_types.items() if c == "save"] == [2, 7, 19, 22]
+    assert [n for n, c in buy_types.items() if c == "force"] == [6, 12, 14, 20]
     assert rounds[6]["money_pp"] == 3200  # $3,000 cash + $200 kept gear a player
 
 

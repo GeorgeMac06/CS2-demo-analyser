@@ -21,7 +21,7 @@ from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 
 from cs2scout import __version__
-from cs2scout.core.economy import CHOICES, MONEY_BANDS, PREVIOUS, SCORE_BANDS
+from cs2scout.core.economy import BUY_TYPES, MONEY_BANDS, PREVIOUS, SCORE_BANDS
 from cs2scout.core.findings import SCHEMA_VERSION, RoundFilter
 from cs2scout.core.grids import PHASES
 from cs2scout.core.patterns import clock
@@ -348,7 +348,7 @@ def _economy_context(f: list[dict], nicks: dict[str, str]) -> dict:
     def order(x: dict) -> tuple:
         p = x["params"]
         return (SITUATIONS.index(p["situation"]) if "situation" in p else 0,
-                p.get("after", []), p.get("side", ""), CHOICES.index(p.get("choice", "full")),
+                p.get("after", []), p.get("side", ""), BUY_TYPES.index(p.get("buy_type", "full")),
                 -x["support"]["k"], x["id"])  # fmt: skip
 
     situations = sorted(_visible(f, "eco.situation"), key=order)

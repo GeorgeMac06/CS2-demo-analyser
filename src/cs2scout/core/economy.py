@@ -1,13 +1,13 @@
 """Economy reads (issue #6): when the team forces, saves or full-buys, and what it buys.
 
 Per round of the scouted team, money is read twice from the snapshots: at round start (cash
-plus the gear players kept) and at freeze end, after buying. The round's *choice* is:
+plus the gear players kept) and at freeze end, after buying. The round's *buy type* is:
 
 - ``full``: the buy class is "full" (team equipment at freeze end reaches ``force_max``);
 - ``save``: not a full buy, and the team kept at least half of its cash;
 - ``force``: not a full buy, and the team spent more than half of its cash.
 
-Pistol rounds are not a choice. Patterns are then mined for the rounds after each pistol,
+Pistol rounds have no buy type. Patterns are then mined for the rounds after each pistol,
 by situation (money, score, the previous round), for saving guns in lost rounds, and for
 the guns and plays on force buys and saves. Each pattern's ``n`` is the set of rounds in its
 situation (``eligible_refs``), so filters recount it like any other pattern.
@@ -23,8 +23,8 @@ import polars as pl
 from cs2scout.core.patterns import pattern
 from cs2scout.core.rounds import PISTOL_ROUNDS, REGULATION_ROUNDS
 
-CHOICES = ("full", "force", "save")
-CHOICE_LABELS = {"full": "full buy", "force": "force buy", "save": "save"}
+BUY_TYPES = ("full", "force", "save")
+BUY_TYPE_LABELS = {"full": "full buy", "force": "force buy", "save": "save"}
 SAVE_KEEPS = 0.5  # a save keeps at least half of the team's cash
 LOADOUT_WINDOW_S = 10  # a player's pistol is the one they hold in the first seconds
 ARMOR_PLAYERS = 3  # "armor" on a buy: at least this many players have it
@@ -68,7 +68,7 @@ class EcoRound:
     gear_start: int = 0  # equipment value players kept from the last round
     money_left: int = 0  # team cash after buying (freeze end)
     players: int = 0
-    choice: str | None = None  # full / force / save; None on pistol rounds
+    buy_type: str | None = None  # full / force / save; None on pistol rounds
     guns: Counter = field(default_factory=Counter)  # bought or kept, default pistols left out
     survivors: dict[int, str | None] = field(default_factory=dict)  # steamid -> primary
     previous: EcoRound | None = None  # the round before, in the same half
@@ -78,7 +78,7 @@ class EcoRound:
         return round((self.money_start + self.gear_start) / self.players) if self.players else 0
 
 
-def choice_of(buy: str, money_start: int | None, money_left: int) -> str | None:
+def buy_type_of(buy: str, money_start: int | None, money_left: int) -> str | None:
     """None for a pistol round, or when the money before buying was not seen."""
     if buy == "pistol" or (money_start is None and buy != "full"):
         return None
@@ -120,7 +120,9 @@ def eco_rounds(tables: dict[str, pl.DataFrame], rounds: pl.DataFrame, lineup: se
         obs.gear_start = int(start["equipment_value"].sum() or 0)
         obs.money_left = int(bought["money"].sum() or 0)
         obs.players = bought.height or start.height
-        obs.choice = choice_of(r["buy"], obs.money_start if start.height else None, obs.money_left)
+        obs.buy_type = buy_type_of(
+            r["buy"], obs.money_start if start.height else None, obs.money_left
+        )
 
         early = snaps.filter(pl.col("tick").is_between(r["freeze_end_tick"],
                                                        r["freeze_end_tick"] + window))  # fmt: skip
@@ -161,11 +163,11 @@ def score_band(us: int, them: int) -> str:
 
 
 def previous_band(prev: EcoRound | None) -> str | None:
-    if prev is None or prev.buy == "pistol" or prev.choice is None:
+    if prev is None or prev.buy == "pistol" or prev.buy_type is None:
         return None  # first round of a half, or right after a pistol (see the pistol reads)
     if prev.won:
         return PREVIOUS[2]
-    return PREVIOUS[0] if prev.choice == "full" else PREVIOUS[1]
+    return PREVIOUS[0] if prev.buy_type == "full" else PREVIOUS[1]
 
 
 def situations(r: EcoRound) -> list[tuple[str, str]]:
@@ -185,7 +187,7 @@ def pistol_context(r: EcoRound) -> tuple[str, ...] | None:
     """('won',) for the round after a won pistol; ('won', 'lost') for the round after that
     when the 2nd round was lost; None for other rounds."""
     prev = r.previous
-    if prev is None or r.choice is None:
+    if prev is None or r.buy_type is None:
         return None
     result = lambda x: "won" if x.won else "lost"  # noqa: E731
     if prev.buy == "pistol":
@@ -195,10 +197,10 @@ def pistol_context(r: EcoRound) -> tuple[str, ...] | None:
     return None
 
 
-def pistol_title(ctx: tuple[str, ...], choice: str) -> str:
+def pistol_title(ctx: tuple[str, ...], buy_type: str) -> str:
     if len(ctx) == 1:
-        return f"2nd round, pistol {ctx[0]}: {CHOICE_LABELS[choice]}"
-    return f"3rd round, pistol {ctx[0]}, 2nd round {ctx[1]}: {CHOICE_LABELS[choice]}"
+        return f"2nd round, pistol {ctx[0]}: {BUY_TYPE_LABELS[buy_type]}"
+    return f"3rd round, pistol {ctx[0]}, 2nd round {ctx[1]}: {BUY_TYPE_LABELS[buy_type]}"
 
 
 def mine_eco(rounds: list[EcoRound], plays_t: dict[str, tuple[str | None, str]],
@@ -206,16 +208,16 @@ def mine_eco(rounds: list[EcoRound], plays_t: dict[str, tuple[str | None, str]],
     """``plays_t``: T round ref -> (site hit, tempo). ``stacks_ct``: CT round ref -> stack."""
     out: list[dict] = []
 
-    def by_choice(kind: str, key: tuple, title: str, params: dict, eligible: dict,
+    def by_buy_type(kind: str, key: tuple, title: str, params: dict, eligible: dict,
                   members: list[EcoRound]) -> None:  # fmt: skip
-        """One pattern per choice seen among ``members`` (n = all of them)."""
+        """One pattern per buy type seen among ``members`` (n = all of them)."""
         refs = [r.ref for r in members]
-        for choice in CHOICES:
-            mine = [r.ref for r in members if r.choice == choice]
+        for buy_type in BUY_TYPES:
+            mine = [r.ref for r in members if r.buy_type == buy_type]
             if mine:
-                out.append(pattern(kind, (*key, choice), "team",
-                                   f"{title}: {CHOICE_LABELS[choice]}",
-                                   params | {"choice": choice}, eligible, mine,
+                out.append(pattern(kind, (*key, buy_type), "team",
+                                   f"{title}: {BUY_TYPE_LABELS[buy_type]}",
+                                   params | {"buy_type": buy_type}, eligible, mine,
                                    eligible_refs=refs))  # fmt: skip
 
     contexts: dict[tuple[str, ...], list[EcoRound]] = defaultdict(list)
@@ -225,24 +227,25 @@ def mine_eco(rounds: list[EcoRound], plays_t: dict[str, tuple[str | None, str]],
             contexts[ctx].append(r)
     for ctx, members in sorted(contexts.items()):
         refs = [r.ref for r in members]
-        for choice in CHOICES:
-            mine = [r.ref for r in members if r.choice == choice]
+        for buy_type in BUY_TYPES:
+            mine = [r.ref for r in members if r.buy_type == buy_type]
             if mine:
-                out.append(pattern("eco.pistol", (ctx, choice), "team", pistol_title(ctx, choice),
-                                   {"after": list(ctx), "choice": choice}, {}, mine,
+                out.append(pattern("eco.pistol", (ctx, buy_type), "team",
+                                   pistol_title(ctx, buy_type),
+                                   {"after": list(ctx), "buy_type": buy_type}, {}, mine,
                                    eligible_refs=refs))  # fmt: skip
 
-    decisions = [r for r in rounds if r.choice is not None]
+    decisions = [r for r in rounds if r.buy_type is not None]
     groups: dict[tuple[str, str], list[EcoRound]] = defaultdict(list)
     for r in decisions:
         for group, label in situations(r):
             groups[(group, label)].append(r)
     for (group, label), members in sorted(groups.items()):
-        by_choice("eco.situation", (group, label), label, {"group": group, "situation": label},
+        by_buy_type("eco.situation", (group, label), label, {"group": group, "situation": label},
                   {}, members)  # fmt: skip
 
     for side in ("T", "CT"):
-        lost = [r for r in decisions if r.side == side and not r.won and r.choice != "save"]
+        lost = [r for r in decisions if r.side == side and not r.won and r.buy_type != "save"]
         saved = [r for r in lost if any(w for w in r.survivors.values())]
         if saved:
             guns = Counter(gun_name(w) for r in saved for w in r.survivors.values() if w)
@@ -256,8 +259,8 @@ def mine_eco(rounds: list[EcoRound], plays_t: dict[str, tuple[str | None, str]],
                                }, {"side": side}, [r.ref for r in saved],
                                eligible_refs=[r.ref for r in lost]))  # fmt: skip
 
-        for choice in ("force", "save"):
-            mine = [r for r in decisions if r.side == side and r.choice == choice]
+        for buy_type in ("force", "save"):
+            mine = [r for r in decisions if r.side == side and r.buy_type == buy_type]
             refs = [r.ref for r in mine]
             if not mine:
                 continue
@@ -267,11 +270,11 @@ def mine_eco(rounds: list[EcoRound], plays_t: dict[str, tuple[str | None, str]],
                     seen[gun].append(r.ref)
             for gun, gun_refs in seen.items():
                 per_round = round(sum(r.guns[gun] for r in mine) / len(gun_refs), 1)
-                title = f"{side} {CHOICE_LABELS[choice]}: {gun_name(gun)}"
+                title = f"{side} {BUY_TYPE_LABELS[buy_type]}: {gun_name(gun)}"
                 if gun != "armor":
                     title += f" (×{per_round:g} when bought)"
-                out.append(pattern("eco.guns", (side, choice, gun), "team", title, {
-                    "side": side, "choice": choice, "gun": gun, "per_round": per_round,
+                out.append(pattern("eco.guns", (side, buy_type, gun), "team", title, {
+                    "side": side, "buy_type": buy_type, "gun": gun, "per_round": per_round,
                 }, {"side": side}, gun_refs, eligible_refs=refs))  # fmt: skip
 
             plays: dict[tuple, list[str]] = defaultdict(list)
@@ -286,9 +289,9 @@ def mine_eco(rounds: list[EcoRound], plays_t: dict[str, tuple[str | None, str]],
                     what = f"{site} {tempo}" if site else "no clear hit"
                 else:
                     what = play[0]
-                out.append(pattern("eco.play", (side, choice, *play), "team",
-                                   f"{side} {CHOICE_LABELS[choice]}: {what}",
-                                   {"side": side, "choice": choice, "play": list(play)},
+                out.append(pattern("eco.play", (side, buy_type, *play), "team",
+                                   f"{side} {BUY_TYPE_LABELS[buy_type]}: {what}",
+                                   {"side": side, "buy_type": buy_type, "play": list(play)},
                                    {"side": side}, play_refs, eligible_refs=refs))  # fmt: skip
     return out
 
@@ -296,8 +299,8 @@ def mine_eco(rounds: list[EcoRound], plays_t: dict[str, tuple[str | None, str]],
 def round_columns(rounds: list[EcoRound]) -> pl.DataFrame:
     """Per-round economy columns joined onto the round index."""
     return pl.DataFrame(
-        [{"ref": r.ref, "choice": r.choice, "money_pp": r.money_pp,
+        [{"ref": r.ref, "buy_type": r.buy_type, "money_pp": r.money_pp,
           "money_left": r.money_left} for r in rounds],
-        schema={"ref": pl.String, "choice": pl.String, "money_pp": pl.Int32,
+        schema={"ref": pl.String, "buy_type": pl.String, "money_pp": pl.Int32,
                 "money_left": pl.Int32},
     )  # fmt: skip

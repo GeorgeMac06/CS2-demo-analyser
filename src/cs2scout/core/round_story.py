@@ -20,7 +20,7 @@ from collections import defaultdict
 
 import polars as pl
 
-from cs2scout.core.economy import CHOICE_LABELS
+from cs2scout.core.economy import BUY_TYPE_LABELS
 from cs2scout.core.features import assign_rounds
 from cs2scout.core.patterns import clock
 from cs2scout.core.positions import PlaceIndex, positions_at
@@ -165,8 +165,8 @@ def round_stories(tables: dict[str, pl.DataFrame], rounds: pl.DataFrame, members
         header = (f"{ref} · {r['side']} · {r['buy']} vs {r['opp_buy']} · score "
                   f"{r['score_us']}-{r['score_them']} · {'WON' if r['won'] else 'lost'} "
                   f"({ending})")  # fmt: skip
-        if r.get("choice") in ("force", "save"):
-            header += f" · {CHOICE_LABELS[r['choice']]}, ${r['money_pp']:,} a player"
+        if r.get("buy_type") in ("force", "save"):
+            header += f" · {BUY_TYPE_LABELS[r['buy_type']]}, ${r['money_pp']:,} a player"
         lines = [header]
         for t in sorted(at[ref]):
             lines.append(f"{clock(t)} {_where(at[ref][t], names)}")
