@@ -19,8 +19,8 @@ from cs2scout.store import assets
 from cs2scout.web import api, pages
 from cs2scout.web.figures import heatmap_figure
 
-SECTIONS = {"overview": "Overview", "t": "T side", "ct": "CT side", "utility": "Utility",
-            "players": "Players", "brief": "AI brief"}  # fmt: skip
+SECTIONS = {"overview": "Overview", "t": "T side", "ct": "CT side", "economy": "Economy",
+            "utility": "Utility", "players": "Players", "brief": "AI brief"}  # fmt: skip
 STATIC = Path(__file__).parent / "static"
 GALLERY = [("T", "early"), ("T", "mid"), ("T", "late"), ("T", "post_plant"), ("CT", "early"),
            ("CT", "mid"), ("CT", "late")]  # fmt: skip

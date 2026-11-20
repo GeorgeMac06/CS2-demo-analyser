@@ -60,7 +60,16 @@ Priority: **H** means wrong scouting conclusions, data loss or a data leak. **M*
 
 **Order within a run:** G-fast first (seconds), then G-demos (minutes, sequential parsing by design), then G-browser.
 
-There is no CI yet, so gates are run locally. Adding CI is a trigger for `ln-63` and is not in this plan.
+**Where gates run** (CI added 2026-11-19, `.github/workflows/ci.yml`):
+
+| Gate | On the owner's PC | In GitHub Actions |
+|---|---|---|
+| G-fast | Pre-commit hook | Every PR and every push to `main`, on Windows |
+| G-browser | By hand | Every PR and every push to `main`, on Ubuntu with Chromium |
+| G-demos | By hand | Never. Real demos contain SteamIDs and must not be uploaded. |
+| Hygiene | — | Every PR. Fails if the PR adds demos, archives, `tests/local_fixtures/` files or a real-looking SteamID (`.github/scripts/hygiene.sh`). |
+
+So every PR must still say whether G-demos ran.
 
 ## 4. Test data and privacy
 
@@ -108,7 +117,7 @@ There is no CI yet, so gates are run locally. Adding CI is a trigger for `ln-63`
 | T-18, T-19 | **PASS** | `tests/test_local_guard.py`, import-linter |
 | T-16 | **PASS** (G-demos): all live positions on the radar; A and B plants in separate clusters. Visual overlay checked on one demo. | `tests/test_assets_and_zones.py` |
 | T-17 | **PASS** (G-browser): J1→J3 + exclude demo + delete, semantic locators, chart/table pairing (C-3), no console errors | `tests/test_browser_journey.py`; page and template smoke tests in G-fast: `tests/test_pages.py` |
-| T-10 | **PASS**: known-answer scenario (`tests/support/scenarios.py`) for T strategies, fakes, unresolved rounds, buy rounds, post-plants, CT setups and stacks, positions, rotations, early duels, retakes and saves, lineups, habits, weapons, roles, and the 2-demo rule | `tests/test_patterns_api.py` |
+| T-10 | **PASS**: known-answer scenario (`tests/support/scenarios.py`) for T strategies, fakes, unresolved rounds, buy rounds, post-plants, CT setups and stacks, positions, rotations, early duels, retakes and saves, lineups, habits, weapons, roles, and the 2-demo rule. Economy reads (2026-11-19): choice and money per round, after the pistol, situations, saved guns, guns and plays on forces and saves, filtered recount, story, tab, export and AI payload | `tests/test_patterns_api.py`, `tests/test_economy.py` |
 | T-11 | **PASS**: carry-over rules; label survives an added demo; a role label hides while its player is excluded and returns; clear/unknown label; player keys stable through roster edits | `tests/test_labels.py`, `tests/test_findings_api.py` |
 | T-17 (extended) | **PASS**: rename a strategy in the browser, and it persists after a reload | `tests/test_browser_journey.py` |
 | T-13 | **PASS**: self-contained, strict CSP, no live controls, counts equal the app, sections/filters, leak guard blocks a SteamID-like nickname; offline in Chromium with 0 requests, all figures drawn, 0 console errors | `tests/test_export.py`, `tests/test_browser_journey.py` |

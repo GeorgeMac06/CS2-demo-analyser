@@ -147,6 +147,17 @@ Status for every item below: **Proposed**.
 | FR-CT-4 | **Rotations:** after first contact or the first utility on a site, the app measures who rotates and how fast. | Rotation time is shown per player. |
 | FR-CT-5 | **Retake vs save:** in rounds where the bomb is planted, the app records retake attempts, saves, and how the retakes turned out. | Save rate and retake win rate are shown. |
 
+### 4.5a Economy (ECO)
+
+Added 2026-11-19 (issue #6). Each round outside the pistols is a **full buy** (the FR-RND-1 full class), a **force buy** (not full, and the team spent more than half its cash) or a **save** (not full, and the team kept at least half). Cash and kept gear are read from the players at round start and at freeze-time end.
+
+| ID | Requirement | Acceptance |
+|---|---|---|
+| FR-ECO-1 | **After the pistol:** the buy in the 2nd round of each half, split by the pistol result, and in the 3rd round, split by both earlier results. | "2nd round, pistol lost: save" shows k/n over the rounds after a lost pistol. |
+| FR-ECO-2 | **Force or save by situation:** the buy split by money a player at round start (cash plus kept gear, in bands), by score (behind by 3+, within 2, ahead by 3+), by the round before (lost a full buy, lost a force or save, won), on the last round of a half and when facing match point. | Each situation's n is the rounds in that situation, and a filter recounts it. |
+| FR-ECO-3 | **Saving guns:** per side, how often someone is still alive with a gun at the end of a round lost on a force or full buy, which guns, and who. | The saved guns and the players are listed. |
+| FR-ECO-4 | **Forces and saves:** per side, the guns bought (upgraded pistols and armor included) and the plays (T: site and pace; CT: stack) on force buys and on saves. | Each gun and play shows k of that side's force buys or saves. |
+
 ### 4.6 Utility (UTIL)
 
 | ID | Requirement | Acceptance |

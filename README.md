@@ -6,7 +6,8 @@ Status: v1 feature-complete (WU-0 to WU-16). Milestone M3 still needs the owner'
 
 - Requirements: `docs/product/requirements.md`
 - Architecture: `docs/architecture/` (baseline, target design, ADRs)
-- Delivery: `docs/delivery/` (delivery plan, test strategy)
+- Delivery: `docs/delivery/` (delivery plan, test strategy, versioning)
+- Versions and what changed in each: [Releases](https://github.com/GeorgeMac06/CS2-demo-analyser/releases). `uv run cs2scout --version` shows the version you have.
 
 ## Install
 
@@ -16,6 +17,8 @@ You need Windows 11 and [uv](https://docs.astral.sh/uv/). uv installs Python 3.1
 uv sync
 uv run cs2scout assets fetch
 ```
+
+To install a released version without cloning the repo, copy the `.whl` link from the [Releases](https://github.com/GeorgeMac06/CS2-demo-analyser/releases) page, then run `uv tool install <link>` and `cs2scout assets fetch`. After that, start the app with `cs2scout`.
 
 `assets fetch` only needs to run once. It downloads the map radar images and coordinates (about 3 MB) from a pinned awpy-data release, and checks them against pinned SHA-256 hashes. Without them, stats still work, but heatmaps and lineups are not drawn on the map.
 
@@ -33,7 +36,7 @@ Times everywhere are the in-game round timer, which shows 1:55 when freeze time 
 
 1. **New analysis.** Drop `.dem`, `.dem.gz`, `.dem.bz2` or `.zip` files (FACEIT and ESEA downloads work as they are), or paste a folder path. The app finds the team that appears in every demo. You confirm the roster, marking stand-ins and anyone to leave out.
 2. **Add demos** as the season goes on. Only new demos are parsed. Each update is a new version of the analysis, and labels you gave to patterns carry over to it.
-3. **Explore.** The tabs are Overview, T side, CT side, Utility, Players and Demos. Use the filters for side, buy type, dates and overtime. Every number is shown as "k/n" (seen in k of n eligible rounds); click it to list those rounds. Name any pattern with ✎.
+3. **Explore.** The tabs are Overview, T side, CT side, Economy, Utility, Players and Demos. Use the filters for side, buy type, dates and overtime. Every number is shown as "k/n" (seen in k of n eligible rounds); click it to list those rounds. Name any pattern with ✎.
 4. **Export.** The Export menu downloads one HTML file. Teammates can open it in any browser, offline. You choose the sections, whether to apply the current filters, and whether to include the map images.
 5. **AI brief** (optional, see below).
 
@@ -107,6 +110,8 @@ git config core.hooksPath .githooks
 | G-fast | `uv run ruff format --check . && uv run ruff check . && uv run lint-imports && uv run pytest -n 8` |
 | G-demos | `uv run pytest -m demos --require-demos` (needs `tests/local_fixtures/`, not in git) |
 | G-browser | `uv run pytest -m browser` (one-time setup: `uv run playwright install chromium`) |
+
+GitHub Actions runs G-fast and G-browser on every pull request. It also runs a hygiene check that refuses demos and real-looking SteamIDs. G-demos runs only on a PC that has the demos.
 
 Real demos go in `tests/local_fixtures/demos/`. That folder is never committed, because demos contain real players' SteamIDs. No scoreboard data is needed: the accuracy tests check our stats against the server's own counters, which are recorded in each demo.
 

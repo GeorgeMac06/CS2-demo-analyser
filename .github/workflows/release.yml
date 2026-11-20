@@ -1,0 +1,67 @@
+name: Release
+
+# Runs when the owner publishes a GitHub release (docs/delivery/versioning.md).
+# Checks the tag, runs the CI gates on it, then attaches the built wheel and sdist.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check the version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.8"
+          python-version: "3.13"
+      - name: The tag matches pyproject.toml and is on main
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version=$(uv version --short)
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::The tag is $TAG but pyproject.toml says $version. Merge a release PR first (uv version X.Y.Z)."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::$TAG is not on main. Release only from main."
+            exit 1
+          fi
+          echo "Releasing $TAG."
+
+  gates:
+    name: Gates
+    needs: check
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Attach the build
+    needs: [check, gates]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.8"
+          python-version: "3.13"
+      - run: uv build
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY"
