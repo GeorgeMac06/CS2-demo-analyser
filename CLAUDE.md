@@ -75,6 +75,7 @@ On Windows, a running `cs2scout.exe` locks the virtual environment, so `uv sync`
 - `docs/architecture/target-design.md`: the design. When the design changes, add a dated "Changed" note there.
 - `docs/delivery/delivery-plan.md`: work units and milestones.
 - `docs/delivery/versioning.md`: semantic versioning, the PR labels and how a release works.
+- `docs/workflows/`: diagrams of the flows and state machines as built. Update a diagram in the same PR as the code it shows.
 - Write UI text, docs, commit messages and PR descriptions in plain, short sentences.
 
 ## Versions
