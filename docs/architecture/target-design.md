@@ -61,6 +61,13 @@ flowchart LR
   DEM --> ING
 ```
 
+**Changed 2026-11-21 (agreed with the owner on 2026-11-17):** the app's main output becomes a **prep document**, in place of the AI brief.
+- Code builds it in four steps: round notes, then plays (with lurkers, named from a per-map playbook), then tendencies with k/n, then a templated document.
+- AI becomes an optional rewrite on top.
+- Plays and tendencies join the Findings Snapshot, which stays the single contract.
+- The owner's hand notes on 3 pro demos are the answer key it is scored against.
+- The details are in the [prep-document design](prep-document.md), and the work units in the delivery plan §9.
+
 ## 2. Drivers that shape this design
 
 | Driver | Design response | Section |

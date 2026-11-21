@@ -234,3 +234,139 @@ The plan was reviewed with the `ln-33-plan-reviewer` checklist as a self-review 
 - Pattern quality has no automated oracle. It relies on the M2 owner review.
 - The critical path waits on P-1.
 - awpy 3.3.0 was released on 2026-11-12. That risk is covered by pinning the version in WU-1.
+
+## 9. After v1: the prep document (added 2026-11-21)
+
+The [prep-document design](../architecture/prep-document.md), agreed with the owner on 2026-11-17, makes a prep document the app's main output. These work units build it.
+
+Each unit is a GitHub issue (#30–#37). The owner decides who takes each one.
+
+| ID | Issue | Work unit | Needs | Priority | Size |
+|---|---|---|---|---|---|
+| PD-0 | #30 | **Owner:** write the answer key for 3 pro demos | — | P1 | M |
+| PD-1 | #31 | Answer key: score the app against the owner's notes | PD-0 | P1 | M |
+| PD-2 | #32 | Round notes: a label per round, first damage, and CT and after-plant lines | — | P1 | S |
+| PD-3 | #33 | Plays: group T rounds into plays, with the lurker and a per-map playbook | PD-2; PD-1 to tune | P1 | L |
+| PD-4 | #34 | Tendencies: per play, plus first-fight reactions and "like clockwork" utility | PD-2, PD-3 | P1 | M |
+| PD-5 | #35 | The prep document, written from the tendencies, without AI | PD-4; #1 for editing | P1 | L |
+| PD-6 | #36 | AI rewrite of the prep document (optional) | PD-5 | P3 | M |
+| PD-7 | #37 | Callouts, part 2: split places into finer areas | #3; the owner's radar images (PD-0, optional part) | P2 | M |
+
+Much of what the prep document needs is already built, as findings from v1 and the economy reads (#6). The work units reuse those findings and add only what's missing. PD-4 lists them.
+
+Sizes as in the roadmap (#12): S is about a day, M is a few days, and L is a week or more.
+
+**Order:**
+- PD-0 (the owner) and PD-2 can run at the same time. PD-1 follows PD-0.
+- PD-3 to PD-6 run in sequence.
+- PD-7 can run at any point once the radar images exist.
+- The Rounds tab (#2) is the place to correct round labels, so it pays off from PD-2 on.
+
+**Milestones:**
+- **M4: plays scored.** After PD-3, the plays are scored against the answer key: tuned on 2 demos, then checked on the held-out one. The owner judges each play as right, wrong or unclear.
+- **M5: prep document v1.** After PD-5, the owner reads the document for a real opponent and records its document score from the answer key.
+
+### PD-0: Owner: write the answer key for 3 pro demos
+
+The owner's notes are the answer key the app is scored against (design §6). Nothing here goes into the repo.
+
+1. **Pick 3 pro demos:** the same team, map and five players; recent; ideally against three different opponents.
+2. **Import them into the app** to check they parse, because pro demos are untested. Don't look at the results yet.
+3. **Write round-by-round notes for each demo, blind:**
+   - header: the round number as the demo counts it, side, the buy if it wasn't a full buy, and the play name;
+   - one name per play, reused every time the play comes back;
+   - round-timer times (1:25, not "40 seconds in");
+   - mark doubts ("fake?", "looked like a stall").
+4. **Write one summary** of their tendencies and what to expect, with round numbers where you can: "B execute ~1:25 (R3, R6, R9)".
+5. **Optional:** radar images labelled with your callouts (for PD-7), and a list of standard plays with their signals, as a starting playbook.
+6. **Keep everything local,** next to the demos or in `tests/local_fixtures/`.
+
+### PD-1: Answer key: score the app against the owner's notes
+
+The review in §8 accepted that "pattern quality has no automated oracle". This unit builds one.
+
+- **A key file per demo:** round → play, site, lurker and key facts. The owner's notes are turned into key files once, and the owner checks them.
+- **A scorer** that runs locally like G-demos. It reads the key files from `tests/local_fixtures/` and is skipped in CI.
+  - **Round score:** each owner play name is matched to the app's play with the most of its rounds. It reports how many rounds agree, with site and lurker scored separately, and lists the rounds that disagree. Until plays exist, it compares site and lurker only.
+  - **Document checklist:** the owner's summary lines and the app's document lines, printed for the owner to tick.
+  - The held-out demo is reported separately.
+- **Done when:** the scorer prints the round score per demo and the checklist, and the hygiene check still passes.
+
+### PD-2: Round notes: a label per round, first damage, and CT and after-plant lines
+
+PR #16 added routes, the T hit and every kill. The app already finds rotations, retakes, saves and after-plant setups, but only as patterns across rounds (`ct.rotation`, `ct.retake`, `ct.save`, `ts.postplant`). This unit adds the rest of design §3, step 1, to each round's story.
+
+- **New: a label per round:** "B execute 1:25", "Mid default, late A" or "no clear hit". After PD-3, a T round's label names its play.
+- **New: first damage** between players, with time and place, and who won that fight. Openings today only cover kills.
+- **From what is already computed:**
+  - CT rotations, and a retake or save after the plant, from the per-round observations in `core/patterns_ct.py`;
+  - where the Ts are after the plant, from the per-round signature behind `ts.postplant`.
+- **The rounds drawer shows the label.**
+- **Done when:**
+  - the story and the patterns share one source for the CT and after-plant lines;
+  - synthetic scenarios check each new line (a label, first damage, a rotation, a retake, a save);
+  - `SCHEMA_VERSION` is bumped, and the PR states how much the AI payload grew.
+
+### PD-3: Plays: group T rounds into plays, with the lurker and a per-map playbook
+
+- **Grouping:** T rounds by site, pace, setup, routes and key utility. Reuse the strategy clustering (design §6.3) and add routes.
+- **The play's lurker:** the player most often away from the group at the hit, and where they are.
+- **A playbook data file per map,** Mirage first, names groups by their signals.
+  - A group that fits no play is a **"New play"** with a description built from its signals.
+  - The playbook never forces a round into a play.
+  - Keep it to standard plays for the map, not one team's.
+- **Renames:** the owner can rename a play, and the existing label matching keeps the name.
+- **Where they show:** plays go into the Findings Snapshot and appear in the T side tab.
+- **Done when:**
+  - synthetic scenarios cover a known split with a lurker, an unmatched group that becomes "New play", and a one-off that stays unique;
+  - M4 is reached.
+
+### PD-4: Tendencies: per play, plus first-fight reactions and "like clockwork" utility
+
+The design's table maps each kind of prep-document line to what is measured. Most kinds already exist as findings.
+
+- **Already built (reuse, don't rebuild):**
+  - T side: `ts.setup`, `ts.site`, `ts.tempo`, `ts.fake`, `ts.postplant`, `ts.buy`, `ts.strategy`;
+  - CT side: `ct.setup`, `ct.stack`, `ct.position`, `ct.aggression`, `ct.rotation`, `ct.retake`, `ct.save`;
+  - players: `plr.habit`, `plr.role`, `plr.weapon`, `plr.clutch`, `plr.openings`;
+  - utility: `util.lineup`, `util.player`;
+  - economy: `eco.pistol`, `eco.play`, `eco.guns`, `eco.exit`, `eco.situation`.
+- **New:**
+  - **per play:** the usual setup, utility in throw order, the hit time and the lurker, worked out by recounting the existing findings on the play's rounds;
+  - **after the first fight:** hit time and hit rate after they win or lose the opening duel;
+  - **"like clockwork":** `util.lineup` extended with the thrower and the time (80% of rounds or more);
+  - **peeks after their own utility:** a player's damage near their own grenade within a few seconds of throwing it.
+  - **"Switches position a lot":** check whether the main-spot share in `ct.position` already answers it. If it does, only the wording is new.
+- **Evidence:** each tendency keeps its k of n, its round links and the low-sample flag.
+- **Done when:** each new kind has a synthetic scenario with a known answer, and T-05 (recount) covers the per-play facts.
+
+### PD-5: The prep document, written from the tendencies, without AI
+
+- **The owner's layout:**
+  - T side: what they always do, pistol, each execute with its hit time, the mid default, after-plant;
+  - CT side: pistol, defaults, retakes, ecos and forces.
+- **Counts become words:** always ≥ 90%, usually ≥ 65%, sometimes ≥ 20%, and once or twice for a rare variation. The thresholds live in `AnalysisConfig`.
+- **An appendix** holds the numbers and round links.
+- **Editing and printing:** reuse the edit mode and print layout that #1 builds for the brief. Don't build them twice.
+- **Done when:**
+  - a synthetic entry gives the expected lines and words;
+  - M5 is reached;
+  - the owner has decided where it lives (a new tab, or in place of the Brief tab).
+
+### PD-6: AI rewrite of the prep document (optional)
+
+- **Send less:** the tendencies and the draft document, not every round story.
+- **What Claude does:** merges lines, puts the important ones first, writes counters, and describes unusual rounds in the owner's words.
+- **What stays:** the preview and confirmation before sending, and the grounding check.
+- **Done when:** the fake-Claude tests cover the new payload and the grounding check, and the PR states the tokens and cost for a 4-demo analysis compared with today's brief.
+
+### PD-7: Callouts, part 2: split places into finer areas
+
+#3 shows callouts in place of place names, but a whole place still gets one callout (House = TV). This unit splits places into the finer areas that plays use, such as door, window and car.
+
+- **Trace the callouts:** draw the owner's callouts as areas on the radar, from their labelled radar images.
+- **An overlay page** so the owner can check the areas.
+- **Use the areas** for grenade landing spots, routes and positions, with #3's place-level callouts as the fallback outside them.
+- **Do #3 first.** This builds on its glossary and its workspace override.
+- This is the "PolygonZones" trigger in design §11.
+- **Done when:** the owner has checked the Mirage overlay, and tests cover a point inside an area and one outside.
