@@ -7,3 +7,6 @@ updates:
       interval: monthly
     labels:
       - "semver:none"
+    # PR titles start with NONE: (docs/delivery/versioning.md). Dependabot adds the colon.
+    commit-message:
+      prefix: "NONE"

@@ -1,14 +1,16 @@
 name: PR labels
 
-# Every PR into main needs exactly one semver label (docs/delivery/versioning.md).
+# Every PR title into main starts with MAJOR:, MINOR:, FIX: or NONE: (docs/delivery/versioning.md).
+# This check reads the prefix and sets the one matching semver:* label. The title wins over a
+# label set by hand.
 
 on:
   pull_request:
     branches: [main]
-    types: [opened, reopened, labeled, unlabeled, synchronize]
+    types: [opened, reopened, edited, labeled, unlabeled, synchronize]
 
 permissions:
-  issues: read
+  issues: write # PR labels go through the issues API
   pull-requests: read
 
 jobs:
@@ -17,15 +19,36 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: mheap/github-action-required-labels@23e10fde7e062233401931a0eece796cd9bf3177 # v5.6.0
-        with:
-          mode: exactly
-          count: 1
-          labels: |
-            semver:major
-            semver:minor
-            semver:patch
-            semver:none
-          message: >-
-            This PR needs exactly one of these labels: {{ provided }}.
-            It has: {{ applied }}. See docs/delivery/versioning.md.
+      - name: Check the title and set the label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          case "$TITLE" in
+            "MAJOR: "?*) want="semver:major" ;;
+            "MINOR: "?*) want="semver:minor" ;;
+            "FIX: "?*) want="semver:patch" ;;
+            "NONE: "?*) want="semver:none" ;;
+            *)
+              echo "::error::Start the PR title with MAJOR:, MINOR:, FIX: or NONE:, then a space and a summary. For example: \"MINOR: Add an Economy tab\". See docs/delivery/versioning.md."
+              exit 1
+              ;;
+          esac
+
+          have=$(gh api "repos/$REPO/issues/$PR/labels" --jq '.[].name | select(startswith("semver:"))')
+          if [ "$have" = "$want" ]; then
+            echo "The title says $want, and the PR has it."
+            exit 0
+          fi
+
+          # Dependabot's token is read-only, so its PRs must already carry the right label
+          # (.github/dependabot.yml sets both the label and the NONE: prefix).
+          for label in $have; do
+            gh api -X DELETE "repos/$REPO/issues/$PR/labels/${label/:/%3A}" > /dev/null
+            echo "Removed $label."
+          done
+          gh api -X POST "repos/$REPO/issues/$PR/labels" -f "labels[]=$want" > /dev/null
+          echo "The title says $want. Set it."
