@@ -239,18 +239,18 @@ The plan was reviewed with the `ln-33-plan-reviewer` checklist as a self-review 
 
 The [prep-document design](../architecture/prep-document.md), agreed with the owner on 2026-11-17, makes a prep document the app's main output. These work units build it.
 
-Each unit is written so it can become a GitHub issue as it stands. The owner decides which become issues, and who takes them.
+Each unit is a GitHub issue (#30–#37). The owner decides who takes each one.
 
-| ID | Work unit | Needs | Priority | Size |
-|---|---|---|---|---|
-| PD-0 | **Owner:** write the answer key for 3 pro demos | — | P1 | M |
-| PD-1 | Answer key: score the app against the owner's notes | PD-0 | P1 | M |
-| PD-2 | Round notes: a label per round, fights, after the plant and CT reads | — | P1 | M |
-| PD-3 | Plays: group T rounds into plays, with the lurker and a per-map playbook | PD-2; PD-1 to tune | P1 | L |
-| PD-4 | Tendencies: per play, per side, per player and per situation | PD-2, PD-3 | P1 | L |
-| PD-5 | The prep document, written from the tendencies, without AI | PD-4 | P1 | L |
-| PD-6 | AI rewrite of the prep document (optional) | PD-5 | P3 | M |
-| PD-7 | Callout areas finer than place names | the owner's radar images (PD-0, optional part) | P2 | M |
+| ID | Issue | Work unit | Needs | Priority | Size |
+|---|---|---|---|---|---|
+| PD-0 | #30 | **Owner:** write the answer key for 3 pro demos | — | P1 | M |
+| PD-1 | #31 | Answer key: score the app against the owner's notes | PD-0 | P1 | M |
+| PD-2 | #32 | Round notes: a label per round, fights, after the plant and CT reads | — | P1 | M |
+| PD-3 | #33 | Plays: group T rounds into plays, with the lurker and a per-map playbook | PD-2; PD-1 to tune | P1 | L |
+| PD-4 | #34 | Tendencies: per play, per side, per player and per situation | PD-2, PD-3 | P1 | L |
+| PD-5 | #35 | The prep document, written from the tendencies, without AI | PD-4 | P1 | L |
+| PD-6 | #36 | AI rewrite of the prep document (optional) | PD-5 | P3 | M |
+| PD-7 | #37 | Callout areas finer than place names | the owner's radar images (PD-0, optional part) | P2 | M |
 
 Sizes as in the roadmap (#12): S is about a day, M is a few days, and L is a week or more.
 
