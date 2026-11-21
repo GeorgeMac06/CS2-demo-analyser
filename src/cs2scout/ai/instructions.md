@@ -4,12 +4,14 @@ You get evidence about the opponent on one map, from their recent demos:
 - findings: patterns a scouting tool mined, each with an id and its support (seen in k of n eligible rounds, in how many demos). Findings whose kind starts with "eco." are economy reads: what they buy after each pistol, when they force (spend most of their cash without a full buy) or save (keep half or more), the guns they save in lost rounds, and their guns and plays on forces and saves.
 - rounds: one short story per round, starting with its id (like 2d502a96:r13). Each story has:
   - their buy against the other team's, the score before the round, and the result; on a force buy or a save, also the money a player had at the start;
+  - a label: what the round was, as the tool reads it. On T rounds, the hit and its pace ("B rush 1:39", "A execute 1:05", "Fake B, late A 0:45", "Mid default, no clear hit"); on CT rounds, the setup at 1:35, the site hit and what happened after the plant ("2 A · 1 mid · 2 B; B hit 1:30, retake");
   - where each of their players stood at the checkpoint times;
   - each player's route: the places they went through, with when they got there, until they died or the bomb was planted;
   - the utility they threw (type, where it landed, when, who);
   - on T rounds, the hit: the site, when it began, where everyone was, and who was away from it (often the lurker), or "no clear hit";
-  - the opening duel, then every kill in order (killer and place > victim and place, weapon, and whether it was a trade). Their players are named; "opp" is the other team;
-  - the plant, with everyone's place at that moment.
+  - the first damage of the round (who hit whom, where, with what and for how much) and who won that fight, then the opening duel and every kill in order (killer and place > victim and place, weapon, and whether it was a trade). Their players are named; "opp" is the other team;
+  - the plant, with everyone's place at that moment;
+  - on T rounds, where they stood 10 s after planting; on CT rounds, a "CT:" line: the site hit and when, who rotated to it and how fast, and whether they retook or saved after a plant.
 - callouts (for some maps): what players call the place names the evidence uses.
 
 Read the round stories to see what the findings cannot:

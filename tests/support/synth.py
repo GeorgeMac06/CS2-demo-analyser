@@ -16,6 +16,8 @@ Scenario shape (all keys optional unless marked)::
         "places": {"15": {"a1": "TRamp"}, "30": {...}},   # player places from second N
         "kills": [{"t": 40, "attacker": "a1", "victim": "b2", "weapon": "ak47",
                    "assister": "a2", "flash_assist": false, "headshot": false}],
+        "damages": [{"t": 12, "attacker": "b1", "victim": "a2", "dmg": 30,
+                     "weapon": "awp"}],          # hits that do not kill (a kill adds its own)
         "plant": {"t": 50, "site": "A", "player": "a3"},
         "grenades": [{"t": 10, "thrower": "a2", "type": "smoke",
                       "throw": [x, y], "land": [x, y]}],
@@ -218,6 +220,16 @@ def build_extract(scenario: dict) -> Extract:  # noqa: C901 - a linear table bui
                     "weapon": k.get("weapon", "ak47"), "dmg_health": 100, "dmg_armor": 0,
                     "health_pre": 100, "health_post": 0,
                 })  # fmt: skip
+
+        for h in spec.get("damages", []):
+            att, vic = h["attacker"], h["victim"]
+            rec["damages"].append({
+                "tick": at(h["t"]), "attacker_steamid": steamid(att),
+                "attacker_side": player_side[att], "victim_steamid": steamid(vic),
+                "victim_side": player_side[vic], "weapon": h.get("weapon", "ak47"),
+                "dmg_health": h["dmg"], "dmg_armor": 0, "health_pre": 100,
+                "health_post": 100 - h["dmg"],
+            })  # fmt: skip
 
         if plant:
             px, py = place_xy(place_at(plant["player"], plant["t"]), plant["player"])

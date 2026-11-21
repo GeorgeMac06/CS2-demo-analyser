@@ -18,7 +18,8 @@ from cs2scout.core.rounds import BUYS
 # 2: round-timer titles and per-round stories (2026-11-16). Older versions offer "Update now".
 # 3: routes, the T hit and every kill in the round stories (2026-11-19).
 # 4: economy reads: force, save or full buy per round, and eco.* patterns (issue #6).
-SCHEMA_VERSION = 5
+# 6: round stories carry a label, first damage, and the CT and after-plant reads (#32).
+SCHEMA_VERSION = 6
 SIDES = ("T", "CT")
 
 

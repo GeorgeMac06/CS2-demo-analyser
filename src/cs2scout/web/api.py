@@ -354,9 +354,10 @@ def get_rounds(
     """FR-CONF-3: the rounds behind a finding (demo, round number, score)."""
     rounds = filtered_snapshot(_version_dir(request, entry_id), RoundFilter())["round_index"]
     wanted = set(refs)
-    told = {s["ref"]: s["text"] for s in stories(request, entry_id)}
+    told = {s["ref"]: s for s in stories(request, entry_id)}
     watch = watch_info(request, entry_id)
-    return [r | {"story": told.get(r["ref"]), "watch": watch.get(r["ref"])}
+    return [r | {"story": told.get(r["ref"], {}).get("text"),
+                 "label": told.get(r["ref"], {}).get("label"), "watch": watch.get(r["ref"])}
             for r in rounds if not wanted or r["ref"] in wanted]  # fmt: skip
 
 
