@@ -11,6 +11,7 @@ browser. In VS Code, the "Markdown Preview Mermaid Support" extension does the s
 
 | Page | Diagram types | Read it when |
 |---|---|---|
+| [Call graph](call-graph.md) | Flowcharts | You want to know which function runs when the Analyst clicks something. Start here when you change code. |
 | [User journeys](user-journeys.md) | Flowcharts | You want to know what the Analyst does, page by page. |
 | [Import](import.md) | Sequence diagram, flowchart | You work on files, archives, the parser or import errors. |
 | [Analysis](analysis.md) | Data-flow chart, sequence diagram | You work on `core`, findings, round stories or recompute. |
