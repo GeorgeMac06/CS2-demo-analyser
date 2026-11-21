@@ -127,7 +127,7 @@ flowchart TD
 
   U(["Tick roles, click Create<br/>POST /ui/entries"]):::user --> CE["web/pages.py<br/>ui_create_entry()"]:::web
   CE --> ACE["web/api.py<br/>create_entry()"]:::web
-  ACE --> ST[("store/library.py<br/>create_team() · create_entry()<br/>set_roster() · add_entry_demos()")]:::store
+  ACE --> ST[("store/library.py<br/>create_team() · create_entry()<br/>set_roster() · add_entry_demos()<br/>mark_import_confirmed()")]:::store
   ACE --> RJ["web/api.py<br/>_recompute_job() → _submit()"]:::web
   RJ --> RS["jobs/runner.py<br/>JobRunner.submit()"]:::job
   RS -.->|"job thread"| RR["jobs/analysis.py<br/>run_recompute()<br/>see section 4"]:::job
@@ -269,4 +269,26 @@ flowchart TD
   classDef web fill:#dbeafe,stroke:#1d4ed8,color:#000
   classDef store fill:#f3f4f6,stroke:#4b5563,color:#000
   classDef ext fill:#fff,stroke:#000,color:#000,stroke-dasharray:4
+```
+
+## 8. Settings: "Check what can go", then "Free up"
+
+The same two steps run from a terminal: `cs2scout free-space` (`__main__._free_space()`) calls
+`unused()`, asks, then calls `free()`.
+
+```mermaid
+flowchart TD
+  U1(["Click Check what can go<br/>GET /ui/storage/unused"]):::user --> UU["web/pages.py<br/>ui_storage_unused()"]:::web
+  UU --> SU["web/api.py<br/>storage_unused()"]:::web
+  SU --> CU[("store/cleanup.py<br/>unused(): demos no entry uses,<br/>minus imports waiting for a roster")]:::store
+  UU --> FT["templates/_free_space.html<br/>the list, sizes and the Free up button"]:::web
+
+  U2(["Click Free up<br/>POST /ui/storage/free"]):::user --> UF["web/pages.py<br/>ui_storage_free()"]:::web
+  UF --> SF["web/api.py<br/>storage_free()"]:::web
+  SF --> CF[("store/cleanup.py<br/>free(): checks again in one transaction,<br/>deletes library rows, then folders")]:::store
+  UF --> FT2["templates/_free_space.html<br/>Freed … or the reason nothing went"]:::web
+
+  classDef user fill:#fde68a,stroke:#b45309,color:#000
+  classDef web fill:#dbeafe,stroke:#1d4ed8,color:#000
+  classDef store fill:#f3f4f6,stroke:#4b5563,color:#000
 ```
