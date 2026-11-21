@@ -4,11 +4,9 @@
 Closes #
 
 ## Type of change
-<!-- Tick one, and set the matching label. The Version label check needs exactly one. -->
-- [ ] `semver:minor`: new feature, or `SCHEMA_VERSION` bumped
-- [ ] `semver:patch`: fix or tuning
-- [ ] `semver:none`: docs, tests or CI only
-- [ ] Also `breaking`: an existing workspace, command or setting stops working
+<!-- Start the PR title with one of these. The Version label check sets the matching label. -->
+<!-- MINOR: new feature, or SCHEMA_VERSION bumped. FIX: fix or tuning. NONE: docs, tests or CI only. -->
+- [ ] Also `breaking` (add the label by hand): an existing workspace, command or setting stops working
 
 ## Try it
 <!-- Which tab or page to open, what to click, what to look for. If there is nothing to see in the app, say so in one line. -->
