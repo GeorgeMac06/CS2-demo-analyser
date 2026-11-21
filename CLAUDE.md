@@ -73,6 +73,7 @@ On Windows, a running `cs2scout.exe` locks the virtual environment, so `uv sync`
 
 - `docs/product/requirements.md`: requirements (FR-xx) and acceptance tests (AT-xx).
 - `docs/architecture/target-design.md`: the design. When the design changes, add a dated "Changed" note there.
+- `docs/architecture/prep-document.md`: where the app is heading. The prep document is built in code from round notes, plays and tendencies, scored against the owner's answer key, with AI as an optional rewrite. Its work units are PD-0 to PD-7 in the delivery plan §9.
 - `docs/delivery/delivery-plan.md`: work units and milestones.
 - `docs/delivery/versioning.md`: semantic versioning, the PR labels and how a release works.
 - `docs/workflows/`: diagrams of the flows and state machines as built. Update a diagram in the same PR as the code it shows.
