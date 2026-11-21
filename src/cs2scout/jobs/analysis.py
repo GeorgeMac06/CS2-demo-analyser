@@ -261,16 +261,17 @@ def _analyse(ctx: JobContext, demos: list[LoadedDemo], scouted: dict, roster: li
         t_list = t_rounds(d.tables, rounds, members, map_name, d.tick_rate, cfg)
         t_obs.extend(t_list)
         place_index = PlaceIndex(d.tables["snapshots"])
-        ct_obs.extend(ct_rounds(d.tables, rounds, members, map_name, d.tick_rate, place_index))
+        ct_list = ct_rounds(d.tables, rounds, members, map_name, d.tick_rate, place_index)
+        ct_obs.extend(ct_list)
         util_obs.append(demo_util(d.tables, rounds, members, d.tick_rate, place_index))
         names = {
             r["steamid"]: r["name"]
             for r in d.tables["players"].iter_rows(named=True)
             if r["steamid"] in members
         } | {s: n for s, n in nicks.items() if s in members}
-        hits = {o.ref: (o.site, o.hit_s) for o in t_list if o.site and o.hit_s is not None}
+        # The same per-round observations as the patterns: one source for both.
         stories.extend(round_stories(d.tables, rounds, members, names, d.tick_rate, place_index,
-                                     cfg.checkpoints_s, map_name, hits))  # fmt: skip
+                                     cfg.checkpoints_s, map_name, t_list, ct_list))  # fmt: skip
         position_parts.append(live_positions(
             d.tables["snapshots"].filter(pl.col("steamid").is_in(list(members))), rounds,
             plants.group_by("ref").agg(pl.col("tick").min()), cfg, d.tick_rate,

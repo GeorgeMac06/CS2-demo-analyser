@@ -169,6 +169,7 @@ flowchart TD
   LOOP --> R3["core/economy.py<br/>eco_rounds() · round_columns()"]:::core
   LOOP --> R4["core/patterns_t.py t_rounds()<br/>core/patterns_ct.py ct_rounds()<br/>core/patterns_util.py demo_util()"]:::core
   LOOP --> R5["core/round_story.py<br/>round_stories()"]:::core
+  R4 -->|"t_list, ct_list"| R5
   LOOP --> R6["core/grids.py<br/>live_positions()"]:::core
 
   AN --> MI["core/patterns_t.py mine_t()<br/>core/patterns_ct.py mine_ct()<br/>core/patterns_util.py mine_util()<br/>core/economy.py mine_eco()"]:::core
