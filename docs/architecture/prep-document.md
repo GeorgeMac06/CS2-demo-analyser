@@ -69,8 +69,7 @@ These are the round-by-round notes the owner would write by hand. They live in `
 **Still to build:**
 - **A label per round,** like "B execute 1:25", "Mid default, late A" or "no clear hit". Once plays exist (step 2), a round's label names its play.
 - **Fights:** first damage, not just kills, so "they fight early in mid" can be measured.
-- **After the plant:** positions 10 seconds after the plant, and where after-plant fights happen.
-- **CT side:** rotations, retakes and saves. For example, a save is a CT who moves away from the site after the plant and survives without fighting.
+- **CT side and after the plant, per round:** the app already finds rotations, retakes, saves and after-plant setups, but only as patterns across rounds (`ct.rotation`, `ct.retake`, `ct.save`, `ts.postplant`). The story should say what happened in each round, from the same per-round observations, so there is one source for both.
 - **Correction:** the owner can correct a round's label in the Rounds tab (#2). Where the owner's label and the app's disagree, a rule needs fixing.
 
 ### Step 2: Plays
@@ -115,6 +114,15 @@ A playbook entry might look like this. The exact format is decided in the issue.
 ### Step 3: Tendencies
 
 Each tendency keeps its k of n and links to the rounds behind it. Low counts carry the existing low-sample flag.
+
+**Most of these already exist as findings.** v1 and the economy reads (#6) find:
+- T setups, sites, tempo, fakes and after-plant setups;
+- CT setups, stacks, positions, early duels, rotations, retakes and saves;
+- opening habits, roles and weapons per player;
+- lineups and utility per player;
+- pistol, eco and force reads.
+
+What's new is gathering them **per play**, recounted on the play's rounds, plus a few missing kinds: reactions to the first fight, "like clockwork" utility, and peeks after a player's own utility. The delivery plan's PD-4 lists the finding kinds to reuse. The list below is the full picture, built or not.
 
 - **Per play:**
   - the usual setup;
@@ -169,7 +177,7 @@ Each tendency keeps its k of n and links to the rounds behind it. Low counts car
 
   **[P]** The thresholds live in `AnalysisConfig`, so they can be tuned without a re-parse.
 - **The numbers move to an appendix:** k of n, and links to rounds.
-- **The owner can edit it,** then print or export it. This takes over the brief editing in #1.
+- **The owner can edit it,** then print or export it, using the edit mode and print layout that #1 builds for the brief.
 - **[OPEN]** Where it lives in the UI: a new tab per analysis, or in place of the Brief tab.
 
 ### Step 5: AI rewrite (optional)
@@ -190,7 +198,7 @@ Claude reads the tendencies and the draft document, not every round, so each run
 | Round notes and labels | `core/round_story.py` | Exists. |
 | Plays | `core/plays.py` (new) | Reuses the clustering in `core/patterns_t.py`. |
 | Playbooks | a data file per map, next to `ai/callouts.json` | Loaded outside `core`. |
-| Tendencies | `core/tendencies.py` (new) | Reuses `core/economy.py` and the existing habit and lineup mining. |
+| Tendencies | `core/tendencies.py` (new) | Mostly recounts existing findings per play (PD-4 lists them). It adds only the missing kinds. |
 | Prep document | a web template and the export | Rendered from the Findings Snapshot, like every other output. |
 | Answer-key scorer | `tests/`, marked like G-demos | Reads key files from `tests/local_fixtures/`, which git ignores. |
 
@@ -202,7 +210,7 @@ The map's nav-mesh only knows places like "House", "Shop" and "Truck". The owner
 
 - **[P]** Trace the owner's callouts as areas onto the radar, from the owner's labelled radar images. Then show an overlay so the owner can check them.
 - This is the "PolygonZones" trigger in the target design §11.
-- Until it is built, `ai/callouts.json` maps whole places to callouts (#3).
+- This is part 2 of the callouts. Part 1 is #3: callouts in place of place names everywhere, a glossary per map and a workspace override. It maps a whole place to one callout, and the areas build on it.
 
 ## 6. Quality: the answer key
 
@@ -251,4 +259,4 @@ The work units (PD-0 to PD-7), their order and two milestones are in the [delive
 5. The prep document, without AI (PD-5).
 6. The AI rewrite on top (PD-6).
 
-Callout areas (§5, PD-7) can be built at any point once the owner's radar images exist. The 2D replay (#4) is the quick way to check a round.
+Callout areas (§5, PD-7) can be built at any point after #3, once the owner's radar images exist. The 2D replay (#4) is the quick way to check a round.

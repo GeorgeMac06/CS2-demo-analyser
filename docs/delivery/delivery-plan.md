@@ -245,12 +245,14 @@ Each unit is a GitHub issue (#30–#37). The owner decides who takes each one.
 |---|---|---|---|---|---|
 | PD-0 | #30 | **Owner:** write the answer key for 3 pro demos | — | P1 | M |
 | PD-1 | #31 | Answer key: score the app against the owner's notes | PD-0 | P1 | M |
-| PD-2 | #32 | Round notes: a label per round, fights, after the plant and CT reads | — | P1 | M |
+| PD-2 | #32 | Round notes: a label per round, first damage, and CT and after-plant lines | — | P1 | S |
 | PD-3 | #33 | Plays: group T rounds into plays, with the lurker and a per-map playbook | PD-2; PD-1 to tune | P1 | L |
-| PD-4 | #34 | Tendencies: per play, per side, per player and per situation | PD-2, PD-3 | P1 | L |
-| PD-5 | #35 | The prep document, written from the tendencies, without AI | PD-4 | P1 | L |
+| PD-4 | #34 | Tendencies: per play, plus first-fight reactions and "like clockwork" utility | PD-2, PD-3 | P1 | M |
+| PD-5 | #35 | The prep document, written from the tendencies, without AI | PD-4; #1 for editing | P1 | L |
 | PD-6 | #36 | AI rewrite of the prep document (optional) | PD-5 | P3 | M |
-| PD-7 | #37 | Callout areas finer than place names | the owner's radar images (PD-0, optional part) | P2 | M |
+| PD-7 | #37 | Callouts, part 2: split places into finer areas | #3; the owner's radar images (PD-0, optional part) | P2 | M |
+
+Much of what the prep document needs is already built, as findings from v1 and the economy reads (#6). The work units reuse those findings and add only what's missing. PD-4 lists them.
 
 Sizes as in the roadmap (#12): S is about a day, M is a few days, and L is a week or more.
 
@@ -290,16 +292,20 @@ The review in §8 accepted that "pattern quality has no automated oracle". This 
   - The held-out demo is reported separately.
 - **Done when:** the scorer prints the round score per demo and the checklist, and the hygiene check still passes.
 
-### PD-2: Round notes: a label per round, fights, after the plant and CT reads
+### PD-2: Round notes: a label per round, first damage, and CT and after-plant lines
 
-PR #16 added routes, the T hit and every kill. This unit adds the rest of design §3, step 1.
+PR #16 added routes, the T hit and every kill. The app already finds rotations, retakes, saves and after-plant setups, but only as patterns across rounds (`ct.rotation`, `ct.retake`, `ct.save`, `ts.postplant`). This unit adds the rest of design §3, step 1, to each round's story.
 
-- **A label per round:** "B execute 1:25", "Mid default, late A" or "no clear hit". After PD-3, a T round's label names its play.
-- **Fights:** first damage between players, with time and place, and who won.
-- **After the plant:** positions 10 seconds after the plant, and where after-plant fights happen.
-- **CT side:** rotations, retakes and saves. A save is a CT who moves away from the site after the plant and survives without fighting.
+- **New: a label per round:** "B execute 1:25", "Mid default, late A" or "no clear hit". After PD-3, a T round's label names its play.
+- **New: first damage** between players, with time and place, and who won that fight. Openings today only cover kills.
+- **From what is already computed:**
+  - CT rotations, and a retake or save after the plant, from the per-round observations in `core/patterns_ct.py`;
+  - where the Ts are after the plant, from the per-round signature behind `ts.postplant`.
 - **The rounds drawer shows the label.**
-- **Done when:** synthetic scenarios check each new line (labels, a rotation, a retake, a save); `SCHEMA_VERSION` is bumped; the PR states how much the AI payload grew.
+- **Done when:**
+  - the story and the patterns share one source for the CT and after-plant lines;
+  - synthetic scenarios check each new line (a label, first damage, a rotation, a retake, a save);
+  - `SCHEMA_VERSION` is bumped, and the PR states how much the AI payload grew.
 
 ### PD-3: Plays: group T rounds into plays, with the lurker and a per-map playbook
 
@@ -315,21 +321,24 @@ PR #16 added routes, the T hit and every kill. This unit adds the rest of design
   - synthetic scenarios cover a known split with a lurker, an unmatched group that becomes "New play", and a one-off that stays unique;
   - M4 is reached.
 
-### PD-4: Tendencies: per play, per side, per player and per situation
+### PD-4: Tendencies: per play, plus first-fight reactions and "like clockwork" utility
 
-The design's table maps each kind of prep-document line to what is measured.
+The design's table maps each kind of prep-document line to what is measured. Most kinds already exist as findings.
 
-- **Per play:** the usual setup, utility in throw order, the hit time, the lurker, and what changes after they win or lose the first fight.
-- **Per side:** what they do every round, and CT setups per site.
-- **Per player:**
-  - "like clockwork" utility (80% of rounds or more);
-  - peeks after their own utility;
-  - AWP spots and first-fight timing;
-  - early fights by place, and how often they win them;
-  - how much a CT anchor moves around.
-- **Situations:** pistol rounds, ecos and forces (reuse the economy reads from #6), after-plant play, retakes and saves.
+- **Already built (reuse, don't rebuild):**
+  - T side: `ts.setup`, `ts.site`, `ts.tempo`, `ts.fake`, `ts.postplant`, `ts.buy`, `ts.strategy`;
+  - CT side: `ct.setup`, `ct.stack`, `ct.position`, `ct.aggression`, `ct.rotation`, `ct.retake`, `ct.save`;
+  - players: `plr.habit`, `plr.role`, `plr.weapon`, `plr.clutch`, `plr.openings`;
+  - utility: `util.lineup`, `util.player`;
+  - economy: `eco.pistol`, `eco.play`, `eco.guns`, `eco.exit`, `eco.situation`.
+- **New:**
+  - **per play:** the usual setup, utility in throw order, the hit time and the lurker, worked out by recounting the existing findings on the play's rounds;
+  - **after the first fight:** hit time and hit rate after they win or lose the opening duel;
+  - **"like clockwork":** `util.lineup` extended with the thrower and the time (80% of rounds or more);
+  - **peeks after their own utility:** a player's damage near their own grenade within a few seconds of throwing it.
+  - **"Switches position a lot":** check whether the main-spot share in `ct.position` already answers it. If it does, only the wording is new.
 - **Evidence:** each tendency keeps its k of n, its round links and the low-sample flag.
-- **Done when:** each kind has a synthetic scenario with a known answer, and T-05 (recount) covers them.
+- **Done when:** each new kind has a synthetic scenario with a known answer, and T-05 (recount) covers the per-play facts.
 
 ### PD-5: The prep document, written from the tendencies, without AI
 
@@ -338,7 +347,7 @@ The design's table maps each kind of prep-document line to what is measured.
   - CT side: pistol, defaults, retakes, ecos and forces.
 - **Counts become words:** always ≥ 90%, usually ≥ 65%, sometimes ≥ 20%, and once or twice for a rare variation. The thresholds live in `AnalysisConfig`.
 - **An appendix** holds the numbers and round links.
-- **Editing:** the owner can edit the document before sharing, then print or export it. This covers #1 for the document.
+- **Editing and printing:** reuse the edit mode and print layout that #1 builds for the brief. Don't build them twice.
 - **Done when:**
   - a synthetic entry gives the expected lines and words;
   - M5 is reached;
@@ -351,10 +360,13 @@ The design's table maps each kind of prep-document line to what is measured.
 - **What stays:** the preview and confirmation before sending, and the grounding check.
 - **Done when:** the fake-Claude tests cover the new payload and the grounding check, and the PR states the tokens and cost for a 4-demo analysis compared with today's brief.
 
-### PD-7: Callout areas finer than place names
+### PD-7: Callouts, part 2: split places into finer areas
+
+#3 shows callouts in place of place names, but a whole place still gets one callout (House = TV). This unit splits places into the finer areas that plays use, such as door, window and car.
 
 - **Trace the callouts:** draw the owner's callouts as areas on the radar, from their labelled radar images.
 - **An overlay page** so the owner can check the areas.
-- **Use the areas** for grenade landing spots, routes and positions, with place names as the fallback outside them.
-- This is the "PolygonZones" trigger in design §11. Related: #3.
+- **Use the areas** for grenade landing spots, routes and positions, with #3's place-level callouts as the fallback outside them.
+- **Do #3 first.** This builds on its glossary and its workspace override.
+- This is the "PolygonZones" trigger in design §11.
 - **Done when:** the owner has checked the Mirage overlay, and tests cover a point inside an area and one outside.
