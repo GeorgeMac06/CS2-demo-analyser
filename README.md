@@ -89,7 +89,7 @@ Everything lives in the workspace folder. Its path is shown on the Settings page
 
 - **Back up:** stop the app, then copy the whole folder.
 - **Restore:** copy the folder back, or set `CS2SCOUT_HOME` to wherever the copy is.
-- **Disk space:** deleting an analysis removes its results only. The parsed data and retained copies of its demos stay, so importing them again is instant; there is no cleanup command yet. Retained copies are the largest part, so turning them off in Settings saves the most space on new imports.
+- **Disk space:** deleting an analysis removes its results only. The parsed data and retained copies of its demos stay, so importing them again is instant. To remove them, use **Free up space** on the Settings page, or run `uv run cs2scout free-space` (add `--yes` to skip the question). Both list what will go and how much space that frees before removing anything. They never touch a demo an analysis uses, an import waiting for its roster to be confirmed (for a day), or anything while an import is running. Retained copies are the largest part, so turning them off in Settings saves the most space on new imports.
 
 ## Map images and sharing exports
 
