@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Agreed** with the owner on 2026-11-17. Step 1 (round notes) is partly built: PR #16. |
+| Status | **Agreed** with the owner on 2026-11-17. Step 1 (round notes) is built: PR #16 and PR #39. |
 | Replaces | The AI brief as the app's main output. The brief stays, as an optional rewrite (step 5). |
 | Related | [Target design](target-design.md) §6.3 (pattern mining) and §6.5 (AI brief). [Delivery plan](../delivery/delivery-plan.md) §9 (work units PD-0 to PD-7). |
 
@@ -62,10 +62,12 @@ Round notes are what the owner would write while watching a demo, written by the
 - the T hit (the moment the Ts commit to a site), who is on it, and who is away from it;
 - every kill, with places, weapon and trade.
 
-**Still to build (PD-2):**
-- **A label per round,** like "B execute 1:25", "Mid default, late A" or "no clear hit". Once plays exist (step 2), a T round's label names its play.
-- **First damage,** not just kills, so "they fight early in mid" can be measured.
-- **The CT side and the after-plant, per round.** The app already finds rotations, retakes, saves and after-plant setups, but only as patterns across rounds (`ct.rotation`, `ct.retake`, `ct.save`, `ts.postplant`). Each round's note should say what happened in that round. It should use the same per-round observations as the patterns, so there is one source for both.
+**Built (PR #39, PD-2):**
+- **A label per round,** like "B execute 1:25", "Mid default, late A" or "no clear hit". The rounds drawer shows it.
+- **First damage,** not just kills, with time and place and who won that fight, so "they fight early in mid" can be measured.
+- **The CT side and the after-plant, per round:** rotations, and a retake or save after the plant, on CT rounds; where the Ts stand after the plant, on T rounds. They come from the same per-round observations as the patterns (`ct.rotation`, `ct.retake`, `ct.save`, `ts.postplant`), so there is one source for both.
+
+**Still to build:** once plays exist (step 2, PD-3), a T round's label names its play.
 
 **Corrections:** the owner can correct a round's label in the Rounds tab (#2). A correction shows where a rule is wrong.
 
@@ -176,7 +178,7 @@ Claude reads the tendencies and the draft document, not every round. Each run sh
 
 | Piece | Where | Notes |
 |---|---|---|
-| Round notes and labels | `core/round_story.py` | Exists. Labels, first damage and the CT lines are added (PD-2). |
+| Round notes and labels | `core/round_story.py` | Exists, with labels, first damage and the CT lines (PD-2, PR #39). |
 | Plays | `core/plays.py` (new) | Builds on `ts.strategy` in `core/patterns_t.py`. |
 | Playbooks | a data file per map, next to `ai/callouts.json` | Loaded outside `core`. |
 | Tendencies | `core/tendencies.py` (new) | Mostly recounts existing findings per play (PD-4 lists them). It adds only the missing kinds. |
