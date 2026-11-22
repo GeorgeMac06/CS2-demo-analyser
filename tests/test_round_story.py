@@ -21,7 +21,14 @@ def entry(api: Api, tmp_path: Path) -> int:
     src = tmp_path / "in"
     src.mkdir()
     for i, opp in enumerate(("b", "c", "d")):
-        write_demo(src / f"m{i}.dem", scouted_match(opp, f"rs{i}"))
+        match = scouted_match(opp, f"rs{i}")
+        # r12: an opponent hits a2 from CT spawn, and both live. r20: a1 hits first, then
+        # dies to the same player at 1:15.
+        match["rounds"][11]["damages"] = [{"t": 12, "attacker": f"{opp}1", "victim": "a2",
+                                           "dmg": 30, "weapon": "awp"}]  # fmt: skip
+        match["rounds"][19]["damages"] = [{"t": 38, "attacker": "a1", "victim": f"{opp}1",
+                                           "dmg": 40}]  # fmt: skip
+        write_demo(src / f"m{i}.dem", match)
     return api.confirm(api.run_import([src]), team_name="Scouted")
 
 
@@ -47,7 +54,8 @@ def test_every_round_has_a_story_a_coach_can_read(api: Api, entry: int) -> None:
         header = (f"{r['ref']} · {r['side']} · {r['buy']} vs {r['opp_buy']} · "
                   f"score {r['score_us']}-{r['score_them']} · {result} (")  # fmt: skip
         assert lines[0].startswith(header)
-        assert [line[:5] for line in lines[1:4]] == ["1:40 ", "1:25 ", "1:10 "]
+        assert lines[1].startswith("label: ") and len(lines[1]) > len("label: ")
+        assert [line[:5] for line in lines[2:5]] == ["1:40 ", "1:25 ", "1:10 "]
         assert sorted(line.split(":")[0] for line in lines if line.startswith("route ")) == [
             f"route a{i}" for i in range(1, 6)]  # fmt: skip
         assert any(line.startswith("utility: ") for line in lines)
@@ -55,6 +63,7 @@ def test_every_round_has_a_story_a_coach_can_read(api: Api, entry: int) -> None:
         assert len(hit) == (1 if r["side"] == "T" else 0)
         assert any(line.startswith("kills: ") for line in lines)
         assert any(line.startswith(("opening kill: ", "opening death: ")) for line in lines)
+        assert sum(line.startswith("first damage: ") for line in lines) == 1
         if r["planted"]:
             plant = "plant " if r["side"] == "T" else "opponents planted "
             assert any(line.startswith(plant) and "; at plant " in line for line in lines)
@@ -79,6 +88,54 @@ def test_a_story_follows_each_player_to_the_hit_and_lists_every_kill(api: Api, e
     # r22 (CT): a3's early pick on A, then the late kill; no hit line on CT rounds.
     kills = next(line for line in told["r22"] if line.startswith("kills: "))
     assert kills.startswith("kills: 1:45 a3 (BombsiteA) > opp (TSpawn) ak47; 1:15 ")
+
+
+def test_each_round_has_a_label_from_the_same_reads_as_the_patterns(api: Api, entry: int) -> None:
+    demo = api.findings(entry)["round_index"][0]["ref"].split(":")[0]
+    told = {ref.split(":")[1]: text.splitlines()
+            for ref, text in stories(api, entry).items() if ref.startswith(demo)}  # fmt: skip
+    label = {r: next(line.removeprefix("label: ") for line in lines if line.startswith("label: "))
+             for r, lines in told.items()}  # fmt: skip
+    assert label["r1"] == label["r2"] == "B rush 1:39"  # on B at 0:16, before 1:35
+    assert label["r7"] == "A hit 1:05"  # a default-time hit with no utility
+    assert label["r10"] == "Fake B, late A 0:45"  # all five B side at 1:25, then A
+    assert label["r12"] == "Mid default, no clear hit"
+    assert label["r13"] == "2 A · 1 mid · 2 B; B hit 1:30, retake"
+    assert label["r19"] == "2 A · 1 mid · 2 B; B hit 1:30, saved"
+    assert label["r22"] == "A stack"
+    # The rounds drawer shows it next to each round.
+    refs = [f"{demo}:r10", f"{demo}:r19"]
+    rows = api.get(f"/api/entries/{entry}/rounds", params={"refs": refs}).json()
+    assert [r["label"] for r in rows] == [label["r10"], label["r19"]]
+    drawer = api.get(f"/ui/entries/{entry}/rounds", params={"refs": refs}).text
+    assert '<span class="round-label">Fake B, late A 0:45</span> · Story' in drawer
+
+
+def test_a_story_reads_the_first_fight_the_ct_side_and_after_the_plant(api: Api, entry: int):
+    demo = api.findings(entry)["round_index"][0]["ref"].split(":")[0]
+    told = {ref.split(":")[1]: text.splitlines()
+            for ref, text in stories(api, entry).items() if ref.startswith(demo)}  # fmt: skip
+    # First damage, and who won that fight: a hit nobody dies from, an opening pick, a
+    # player who hits first but loses the fight, and the round's only kill.
+    assert "first damage: 1:43 opp (CTSpawn) > a2 (TopofMid) awp for 30; both lived" in told["r12"]
+    assert ("first damage: 1:45 a3 (BombsiteA) > opp (TSpawn) ak47 for 100; a3 won the fight"
+            in told["r22"])  # fmt: skip
+    assert "first damage: 1:17 a1 (BombsiteA) > opp (TSpawn) ak47 for 40; opp won the fight" in (
+        told["r20"])  # fmt: skip
+    assert ("first damage: 1:15 opp (CTSpawn) > a2 (Apartments) ak47 for 100; opp won the fight"
+            in told["r11"])  # fmt: skip
+    # CT: who rotated to the hit site and when, then a retake or a save after the plant.
+    assert ("CT: B hit 1:30; a1 rotated in 7 s; a2, a3 did not get there; after the plant: "
+            "retake") in told["r13"]  # fmt: skip
+    assert "CT: A hit 1:30; a3, a4, a5 did not get there; after the plant: retake" in told["r17"]
+    assert "CT: B hit 1:30; a1, a2, a3 did not get there; after the plant: saved" in told["r19"]
+    assert not any(line.startswith("CT: ") for line in told["r22"])  # no hit, no plant
+    # After the plant: where the Ts are, as the ts.postplant pattern reads it.
+    assert "after planting B (plant+10s): 3 B site · 2 underpass" in told["r2"]
+    assert "after planting A (plant+10s): 3 A site · 1 A ramp · 1 connector" in told["r7"]
+    assert not any(line.startswith("after planting") for line in told["r12"])
+    titles = [f["title"] for f in api.findings(entry)["findings"]]
+    assert "After planting B: 3 B site · 2 underpass" in titles
 
 
 def test_a_route_skips_places_a_player_only_brushed_past() -> None:

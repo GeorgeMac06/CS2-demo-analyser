@@ -33,6 +33,7 @@ class CTRound:
     setup: tuple = ()
     early: list[dict] = field(default_factory=list)  # {steamid, won, place}
     contact_site: str | None = None
+    contact_s: float | None = None  # seconds after freeze end
     rotations: dict[int, float | None] = field(default_factory=dict)
     plant_site: str | None = None
     retake: bool = False
@@ -109,6 +110,7 @@ def ct_rounds(tables: dict[str, pl.DataFrame], rounds: pl.DataFrame, members: se
         mine = ours.filter(pl.col("ref") == ref).sort("tick")
         if ref in contact:
             obs.contact_site, tick0 = contact[ref]
+            obs.contact_s = (tick0 - r["freeze_end_tick"]) / tick_rate
             obs.rotations = _rotations(mine, tick0, obs.contact_site, tick_rate, zone)
         plant = first_plant.get(ref)
         if plant is not None:

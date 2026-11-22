@@ -31,6 +31,7 @@ STRATEGY_SIMILARITY = 0.6
 SETUP_SIMILARITY = 0.75
 HIT_SITE_PLAYERS = 2  # players on the site at once: the hit has begun
 SITE_PRESENCE = 3  # players on a site that make it "their" site without a plant
+POSTPLANT_AT_S = 10  # the after-plant setup is read this long after the plant
 
 
 @dataclass
@@ -45,7 +46,7 @@ class TRound:
     planted: bool = False
     early_site: str | None = None
     utility: Counter = field(default_factory=Counter)
-    postplant: Counter | None = None
+    postplant: Counter | None = None  # groups 10 s after the plant; None: no plant, or over
 
     @property
     def tempo(self) -> str:
@@ -113,8 +114,10 @@ def t_rounds(tables: dict[str, pl.DataFrame], rounds: pl.DataFrame, members: set
         presence = on_site.get(ref, {})
         if plant is not None:
             obs.planted, obs.site = True, plant["bombsite"]
+            # The hit began when two were on the site, or at the plant if that came first.
             hits = presence.get(f"{obs.site}:hit")
-            obs.hit_s = ((min(hits) if hits else plant["tick"]) - fe) / tick_rate
+            obs.hit_s = (min(min(hits), plant["tick"]) if hits else plant["tick"]) - fe
+            obs.hit_s /= tick_rate
         else:
             held = [(min(presence[f"{s}:held"]), s) for s in ("A", "B")
                     if presence.get(f"{s}:held")]  # fmt: skip
@@ -126,9 +129,9 @@ def t_rounds(tables: dict[str, pl.DataFrame], rounds: pl.DataFrame, members: set
         horizon = fe + int(((obs.hit_s if obs.hit_s is not None else 45) + 5) * tick_rate)
         thrown = grenades.filter((pl.col("ref") == ref) & (pl.col("start_tick") <= horizon))
         obs.utility = Counter(UTILITY[g] for g in thrown["type"] if g in UTILITY)
-        if plant is not None:
-            obs.postplant = _groups_at(snaps, plant["tick"] + int(10 * tick_rate),
-                                       r["end_tick"], map_name, zones)  # fmt: skip
+        after = plant["tick"] + int(POSTPLANT_AT_S * tick_rate) if plant is not None else None
+        if after is not None and after <= r["end_tick"]:
+            obs.postplant = _groups_at(snaps, after, r["end_tick"], map_name, zones)
         out.append(obs)
     return out
 
