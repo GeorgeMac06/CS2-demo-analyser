@@ -9,7 +9,7 @@
       {% if snapshot %}· version {{ snapshot.entry.version }}{% endif %}
       {% if entry.busy %}<span class="chip">updating…</span>{% endif %}</p>
   </div>
-  <div class="row" style="margin-left:auto">
+  <div class="row no-print" style="margin-left:auto">
     <a class="button" href="/entries/{{ entry.id }}/add">Add demos</a>
     <details><summary>Export</summary>
       <form class="card" method="get" action="/ui/entries/{{ entry.id }}/export" data-export
@@ -39,7 +39,7 @@
 </div>
 <div id="notice"></div>
 {% if outdated or config_changed %}
-<div class="card" id="outdated">{% if outdated %}<strong>This analysis was built by an older version of the app.</strong>
+<div class="card no-print" id="outdated">{% if outdated %}<strong>This analysis was built by an older version of the app.</strong>
   Pattern tabs stay empty until it is updated.{% else %}<strong>The thresholds in Settings have changed since this analysis was built.</strong>
   Update it to apply them.{% endif %} Updating uses the stored data; nothing is parsed again.
   <p><button hx-post="/ui/entries/{{ entry.id }}/recompute" hx-target="#outdated" hx-swap="innerHTML">Update now</button></p></div>

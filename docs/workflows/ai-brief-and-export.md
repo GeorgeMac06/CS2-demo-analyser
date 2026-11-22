@@ -71,6 +71,30 @@ What the payload holds, and what it does not:
 | One story per round, times on the round timer | Raw demos, file paths |
 | Demo labels and dates, the active filter, the callout glossary | The API key |
 
+### Editing the brief (#1)
+
+Code: `web/api.py` (`edit_brief`, `restore_brief`), `web/pages.py` (`ui_brief_editor`,
+`ui_brief_edit`, `ui_brief_restore`). Nothing is sent to Claude. Every save is a new row, so
+Claude's original and each edit stay in `ai_brief`; the newest row is the brief shown.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Original: Send (Claude writes it)
+  Original --> Edited: Save edit (new row: edited, original_at)
+  Edited --> Edited: Save edit again (new row, same original_at)
+  Edited --> Restored: Restore original (copy of the original as a new row)
+  Restored --> Edited: Save edit
+  Original --> [*]: a newer brief from Claude
+  Edited --> Stale: a demo or setting changes the analysis
+  Original --> Stale: a demo or setting changes the analysis
+```
+
+- An edit keeps each kept item's evidence. Items the analyst adds have `by: analyst` and no
+  evidence, and are marked "added by the analyst".
+- The app, the export and the Markdown say "AI-generated, edited by the analyst".
+- An edit is refused if it holds a SteamID or a file path (`EXPORT_BLOCKED`), or if the brief
+  changed since the editor opened (409).
+
 ## Export
 
 Code: `web/export_view.py` (`render`), `export/inline.py`, `templates/export.html`.

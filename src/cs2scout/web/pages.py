@@ -551,6 +551,71 @@ async def ui_brief_send(entry_id: int, request: Request) -> Response:
     return _redirect(f"/entries/{entry_id}?tab=brief")
 
 
+@router.get("/ui/entries/{entry_id}/ai-brief/edit", response_class=HTMLResponse)
+def ui_brief_editor(entry_id: int, request: Request) -> HTMLResponse:
+    """#1: the brief as a form, in place of the brief."""
+    brief = _brief(request, entry_id)
+    if brief is None:
+        return _error(request, "There is no brief to edit yet.")
+    return _page(request, "_brief_edit.html", entry=api.get_entry(entry_id, request), brief=brief)
+
+
+def _order(form, name: str, default: int) -> int:
+    try:
+        return int(str(form.get(name, "")).strip())
+    except ValueError:
+        return default
+
+
+def _points(form, name: str) -> list[str]:
+    return [p for p in str(form.get(name, "")).splitlines() if p.strip()]
+
+
+@router.post("/ui/entries/{entry_id}/ai-brief/edit", response_class=HTMLResponse)
+async def ui_brief_edit(entry_id: int, request: Request) -> Response:
+    """The editor's form as an edit: items sorted by their order numbers. On a tie, the item
+    the analyst gave a new number goes first ("1" means "make it first"), then the brief's
+    order."""
+    form = await request.form()
+    brief = _brief(request, entry_id)
+    if brief is None:
+        return _error(request, "There is no brief to edit yet.")
+    sections = []
+    for i, section in enumerate(brief["sections"]):
+        items = []
+        for j in range(len(section["claims"])):
+            if f"d-{i}-{j}" not in form:
+                n = _order(form, f"o-{i}-{j}", j + 1)
+                items.append((n, n == j + 1, j, {
+                    "source": j, "title": str(form.get(f"t-{i}-{j}", "")),
+                    "points": _points(form, f"p-{i}-{j}")}))  # fmt: skip
+        new = {"title": str(form.get(f"t-{i}-new", "")), "points": _points(form, f"p-{i}-new")}
+        if new["title"].strip() or new["points"]:
+            end = len(section["claims"])
+            n = _order(form, f"o-{i}-new", end + 1)
+            items.append((n, n == end + 1, end, new))
+        items.sort(key=lambda x: x[:3])
+        sections.append({"id": section["id"], "claims": [x[3] for x in items[:60]]})
+    try:
+        body = api.BriefEdit(sections=sections, based_on=form.get("based_on") or None)
+        api.edit_brief(entry_id, body, request)
+    except ApiError as exc:
+        return _error(request, exc.message)
+    except ValidationError:
+        return _error(request, "Keep titles under 300 characters, points under 500, and at "
+                      "most 20 points per item.")  # fmt: skip
+    return _redirect(f"/entries/{entry_id}?tab=brief")
+
+
+@router.post("/ui/entries/{entry_id}/ai-brief/restore", response_class=HTMLResponse)
+def ui_brief_restore(entry_id: int, request: Request) -> Response:
+    try:
+        api.restore_brief(entry_id, request)
+    except ApiError as exc:
+        return _error(request, exc.message)
+    return _redirect(f"/entries/{entry_id}?tab=brief")
+
+
 # ---------------------------------------------------------------- settings (WU-16)
 
 

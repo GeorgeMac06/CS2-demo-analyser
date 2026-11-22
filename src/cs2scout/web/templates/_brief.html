@@ -1,11 +1,15 @@
 {% macro round_chip(r) %}<span class="chip round" title="{{ r.file or r.demo }}">{{ r.demo }}{% if r.score %} ({{ r.score }}){% endif %} · round {{ r.round }} {{ r.side }} · <code>demo_gototick {{ r.tick }}</code></span>{% endmacro %}
+{% macro yours(c) %}{% if c.by == "analyst" %} <span class="chip">added by the analyst</span>{% endif %}{% endmacro %}
 <article class="card brief" aria-label="AI brief">
-  <p><span class="chip">AI-generated</span>{% if brief.stale %} <span class="chip warn">stale</span>{% endif %}
-    <span class="muted">Written by {{ brief.model }} on {{ brief.created_at[:16].replace("T", " ") }} UTC from analysis version {{ brief.entry_version }}{% if brief.filter %} · filtered: {% for k, v in brief.filter.items() %}{{ k.replace("_", " ") }} {{ v if v is string else v | join(", ") }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}.
-    Times are the round timer.</span></p>
-  {% if not static %}<p class="row">
+  <p><span class="chip">{{ "AI-generated, edited by the analyst" if brief.edited else "AI-generated" }}</span>{% if brief.stale %} <span class="chip warn">stale</span>{% endif %}
+    <span class="muted">Written by {{ brief.model }} on {{ (brief.written_at or brief.created_at)[:16].replace("T", " ") }} UTC from analysis version {{ brief.entry_version }}{% if brief.filter %} · filtered: {% for k, v in brief.filter.items() %}{{ k.replace("_", " ") }} {{ v if v is string else v | join(", ") }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}.
+    {% if brief.edited %}Edited by the analyst on {{ brief.created_at[:16].replace("T", " ") }} UTC. {% endif %}Times are the round timer.</span></p>
+  {% if not static %}<p class="row no-print">
+    <button type="button" class="secondary" hx-get="/ui/entries/{{ entry.id }}/ai-brief/edit" hx-target="closest article" hx-swap="outerHTML">Edit</button>
+    {% if brief.edited %}<button type="button" class="secondary" hx-post="/ui/entries/{{ entry.id }}/ai-brief/restore" hx-target="#brief-notice" hx-confirm="Show Claude's original brief again? Your edits will no longer be shown.">Restore original</button>{% endif %}
     <a class="button secondary" href="/ui/entries/{{ entry.id }}/ai-brief.md" download>Download as Markdown</a>
-    {% if brief.usage %}<span class="muted">This brief used {{ "{:,}".format(brief.usage.input_tokens) }} input and {{ "{:,}".format(brief.usage.output_tokens) }} output tokens{% if brief.cost_usd is not none %}: about ${{ "%.2f" | format(brief.cost_usd) }} at list prices{% endif %}.</span>{% endif %}</p>{% endif %}
+    {% if brief.usage %}<span class="muted">This brief used {{ "{:,}".format(brief.usage.input_tokens) }} input and {{ "{:,}".format(brief.usage.output_tokens) }} output tokens{% if brief.cost_usd is not none %}: about ${{ "%.2f" | format(brief.cost_usd) }} at list prices{% endif %}.</span>{% endif %}</p>
+  <div id="brief-notice" aria-live="polite"></div>{% endif %}
   {% if brief.stale %}<p class="muted">The analysis has changed since this brief was written (it is now version {{ brief.current_version }}). Generate a new brief for current numbers.</p>{% endif %}
   {% if brief.dropped %}<p class="muted">{{ brief.dropped }} of {{ brief.claims }} claims were left out because they did not cite evidence from this analysis.</p>{% endif %}
   {% for s in brief.sections %}
@@ -13,9 +17,9 @@
   {% if s.id == "counters" %}<p class="muted">Suggestions from Claude, not observations.</p>{% endif %}
   {% if s.id == "watch" %}<p class="muted">To watch one: open the demo in CS2 (<code>playdemo</code>), then paste its <code>demo_gototick</code> command into the console.</p>{% endif %}
   <ul class="claims">{% for c in s.claims %}{% set points = c.points or [] %}
-    <li>{% if points %}<strong>{{ c.title }}</strong>
+    <li>{% if points %}<strong>{{ c.title }}</strong>{{ yours(c) }}
       <ul class="points">{% for p in points %}<li>{{ p }}</li>{% endfor %}</ul>
-      {%- else %}{{ c.title or c.text }}{% endif %}
+      {%- else %}{{ c.title or c.text }}{{ yours(c) }}{% endif %}
       {%- if s.id == "watch" %}<div>{% for r in c.rounds or [] %}{{ round_chip(r) }} {% endfor %}</div>
       {%- elif c.cites or c.rounds %}
       <details class="evidence"><summary>Evidence</summary>{% for f in c.cites %}<span class="chip" title="{{ f.id }}">{{ f.title }}{% if f.k is not none %} · {{ f.k }}/{{ f.n }}{% endif %}</span> {% endfor %}

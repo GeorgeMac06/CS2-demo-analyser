@@ -1,5 +1,5 @@
 {% if not static %}
-<div class="card">
+<div class="card no-print">
 {% if not ai_enabled %}
   <p><strong>AI briefs are off.</strong> They need a Claude API key. Everything else in the app works without one.</p>
   <p class="muted">Put <code>ANTHROPIC_API_KEY=...</code> in a <code>.env</code> file in the workspace folder (or set it as an environment variable), then restart the app. The key stays on this PC and is never written to exports or logs.</p>
@@ -10,6 +10,6 @@
     <button type="submit">Preview what is sent</button></form>
 {% endif %}
 </div>
-<div id="ai-step" aria-live="polite"></div>
+<div id="ai-step" class="no-print" aria-live="polite"></div>
 {% endif %}
 {% if brief %}{% include "_brief.html" %}{% elif not static %}<p class="muted">No brief yet.</p>{% endif %}

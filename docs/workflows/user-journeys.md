@@ -92,5 +92,8 @@ flowchart LR
     A1["AI brief tab"] --> A2["Preview: exact payload, tokens, price"]
     A2 --> A3["Send within 10 minutes"]
     A3 --> A4["Brief shown with evidence<br/>Markdown download"]
+    A4 -->|Edit| A5["Change, reorder, delete or add items<br/>Save edit"]
+    A5 --> A4
+    A4 -->|Restore original| A4
   end
 ```

@@ -266,6 +266,16 @@ flowchart TD
   CB --> SB[("store/library.py<br/>save_brief()")]:::store
   US --> RD(["HX-Redirect to the AI brief tab"]):::user
 
+  U3(["Click Edit, then Save edit<br/>GET, then POST /ui/entries/{id}/ai-brief/edit"]):::user --> UE["web/pages.py<br/>ui_brief_editor() · ui_brief_edit()"]:::web
+  UE --> EB["web/api.py<br/>edit_brief() → leaks()"]:::web
+  U4(["Click Restore original<br/>POST /ui/entries/{id}/ai-brief/restore"]):::user --> UR["web/pages.py<br/>ui_brief_restore()"]:::web
+  UR --> RB["web/api.py<br/>restore_brief()"]:::web
+  EB --> SB
+  RB --> BA[("store/library.py<br/>brief_at()")]:::store
+  RB --> SB
+  UE --> RD
+  UR --> RD
+
   classDef user fill:#fde68a,stroke:#b45309,color:#000
   classDef web fill:#dbeafe,stroke:#1d4ed8,color:#000
   classDef store fill:#f3f4f6,stroke:#4b5563,color:#000

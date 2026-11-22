@@ -22,6 +22,7 @@ from cs2scout.ai import payload as ai_payload
 from cs2scout.core.errors import ErrorCode
 from cs2scout.core.findings import RoundFilter
 from cs2scout.core.labels import apply as apply_labels
+from cs2scout.export.inline import leaks
 from cs2scout.jobs.analysis import run_recompute
 from cs2scout.jobs.import_job import ImportOptions, run_import
 from cs2scout.jobs.runner import JobConflict, JobContext
@@ -529,6 +530,97 @@ def get_brief(entry_id: int, request: Request) -> dict:
     if brief is None:
         raise not_found("AI brief")
     return brief
+
+
+# Set per saved row by the library, not part of a brief's own content.
+_ROW_KEYS = ("entry_version", "created_at", "model", "payload_hash", "stale", "current_version")
+
+
+class BriefItemEdit(BaseModel):
+    source: int | None = Field(
+        default=None, ge=0,
+        description="The item's position in this section of the brief as it is now. "
+                    "None for the analyst's own item.",
+    )  # fmt: skip
+    title: str = Field(default="", max_length=300)
+    points: list[Annotated[str, Field(max_length=500)]] = Field(default=[], max_length=20)
+
+
+class BriefSectionEdit(BaseModel):
+    id: str
+    claims: list[BriefItemEdit] = Field(default=[], max_length=60)
+
+
+class BriefEdit(BaseModel):
+    sections: list[BriefSectionEdit]
+    based_on: str | None = Field(
+        default=None, description="created_at of the brief the edit started from"
+    )
+
+
+@router.put("/entries/{entry_id}/ai-brief")
+def edit_brief(entry_id: int, body: BriefEdit, request: Request) -> dict:
+    """#1: the analyst's edit, items in the order sent. An item left out is deleted, and so is
+    one with no title and no points. Own items need no evidence. The edit is saved as a new
+    brief; Claude's original stays and can be restored."""
+    brief = get_brief(entry_id, request)
+    if body.based_on is not None and body.based_on != brief["created_at"]:
+        raise ApiError(409, ErrorCode.INVALID_REQUEST, "The brief changed since you started "
+                       "editing. Open the editor again.")  # fmt: skip
+    edits = {s.id: s for s in body.sections}
+    if len(edits) != len(body.sections) or set(edits) != {s["id"] for s in brief["sections"]}:
+        raise ApiError(422, ErrorCode.INVALID_REQUEST, "send each section of the brief once")
+    sections, texts = [], []
+    for section in brief["sections"]:
+        claims = []
+        for item in edits[section["id"]].claims:
+            title = item.title.strip()
+            points = [p.strip() for p in item.points if p.strip()]
+            if not title and not points:
+                continue
+            if not title:
+                raise ApiError(422, ErrorCode.INVALID_REQUEST, "Every item needs a title.")
+            if item.source is None:
+                claims.append({"title": title, "points": points, "cites": [], "rounds": [],
+                               "by": "analyst"})  # fmt: skip
+            elif item.source < len(section["claims"]):
+                kept = {k: v for k, v in section["claims"][item.source].items() if k != "text"}
+                claims.append(kept | {"title": title, "points": points})
+            else:
+                raise ApiError(422, ErrorCode.INVALID_REQUEST,
+                               f"unknown item in {section['title']}")  # fmt: skip
+            texts += [title, *points]
+        sections.append(section | {"claims": claims})
+    problems = leaks("\n".join(texts))
+    if problems:
+        raise ApiError(422, ErrorCode.EXPORT_BLOCKED, "The edit contains "
+                       f"{' and '.join(problems)}. Remove it, then save.")  # fmt: skip
+    content = {k: v for k, v in brief.items() if k not in _ROW_KEYS}
+    content |= {"sections": sections, "edited": True,
+                "original_at": content.get("original_at", brief["created_at"]),
+                "written_at": content.get("written_at", brief["created_at"])}  # fmt: skip
+    lib = _state(request).library
+    lib.save_brief(entry_id, brief["entry_version"], brief["model"], brief["payload_hash"],
+                   content)  # fmt: skip
+    return lib.latest_brief(entry_id)
+
+
+@router.post("/entries/{entry_id}/ai-brief/restore")
+def restore_brief(entry_id: int, request: Request) -> dict:
+    """#1: bring back Claude's original, saved as the newest brief. The edit stays saved."""
+    brief = get_brief(entry_id, request)
+    if not brief.get("edited"):
+        raise ApiError(409, ErrorCode.INVALID_REQUEST, "This brief has not been edited.")
+    lib = _state(request).library
+    original = lib.brief_at(entry_id, brief["original_at"])
+    if original is None:
+        raise not_found("original brief")
+    content = {k: v for k, v in original.items() if k not in _ROW_KEYS}
+    content |= {"original_at": original["created_at"],
+                "written_at": content.get("written_at", original["created_at"])}  # fmt: skip
+    lib.save_brief(entry_id, original["entry_version"], original["model"],
+                   original["payload_hash"], content)  # fmt: skip
+    return lib.latest_brief(entry_id)
 
 
 # ---------------------------------------------------------------- settings (WU-16)

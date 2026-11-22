@@ -243,12 +243,21 @@ class Library:
         return created
 
     def latest_brief(self, entry_id: int) -> dict | None:
-        """The newest brief; ``stale`` once the analysis has a newer version."""
-        rows = self._query(
-            "SELECT b.*, e.current_version FROM ai_brief b JOIN entry e USING (entry_id) "
-            "WHERE entry_id = ? ORDER BY created_at DESC LIMIT 1",
-            (entry_id,),
-        )
+        """The newest brief; ``stale`` once the analysis has a newer version.
+
+        An analyst's edit (#1) is saved as a newer row, so it is the latest; the brief it
+        came from stays, under ``original_at``.
+        """
+        return self._brief(entry_id, "ORDER BY b.created_at DESC LIMIT 1", ())
+
+    def brief_at(self, entry_id: int, created_at: str) -> dict | None:
+        """One saved brief, as ``latest_brief`` returns it."""
+        return self._brief(entry_id, "AND b.created_at = ?", (created_at,))
+
+    def _brief(self, entry_id: int, where: str, params: tuple) -> dict | None:
+        # ``where`` is one of the two constants above, never user input.
+        sql = "SELECT b.*, e.current_version FROM ai_brief b JOIN entry e USING (entry_id) "
+        rows = self._query(sql + f"WHERE entry_id = ? {where}", (entry_id, *params))  # noqa: S608
         if not rows:
             return None
         r = rows[0]

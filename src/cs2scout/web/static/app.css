@@ -75,6 +75,28 @@ ul.claims ul.points li { margin-bottom: 2px; }
 details.evidence summary { cursor: pointer; color: var(--muted); font-size: .85em; }
 table.usage { max-width: 520px; } table.usage th { text-align: left; font-weight: normal; }
 .path { overflow-wrap: anywhere; }
+.brief-edit h3 { margin-top: 0; }
+.edit-section { margin: 12px 0; }
+.edit-item { border-bottom: 1px solid var(--line); padding: 8px 0; }
+.edit-item.new { border-bottom: 0; }
+.edit-item .grow { flex: 1; } .edit-item .grow input { flex: 1; min-width: 12em; }
+.edit-item input.order { width: 4.5em; }
+label.block { display: flex; flex-direction: column; align-items: stretch; gap: 2px; margin-top: 6px; }
+label.block textarea { min-height: 0; }
+/* Print (#1): the page as it reads on paper, without the app around it. */
+@media print {
+  :root, :root:not([data-theme="light"]) {
+    --bg: #fff; --surface: #fff; --text: #000; --muted: #444; --line: #ccc; --chip: #eee;
+    --accent: #000; color-scheme: light;
+  }
+  header.top, .no-print, .tabs, #filters, #drawer, details.evidence { display: none !important; }
+  body { font-size: 10.5pt; }
+  main { max-width: none; padding: 0; }
+  .card { border: 0; padding: 0; margin: 0 0 6px; }
+  article.brief h3 { break-after: avoid; margin: 10px 0 2px; }
+  ul.claims > li { break-inside: avoid; margin-bottom: 4px; }
+  ul.points { margin: 2px 0; }
+}
 pre.story { white-space: pre-wrap; font-size: 12px; margin: 4px 0; }
 tr.story td { border-top: none; padding-top: 0; }
 .round-label { font-weight: 600; }

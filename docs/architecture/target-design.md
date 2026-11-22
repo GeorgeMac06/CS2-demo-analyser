@@ -291,6 +291,7 @@ The API is unversioned: there is a single client, the same release's templates. 
 | `GET /api/entries/{id}/rounds?refs=` | Round list for a finding (FR-CONF-3) | — |
 | `POST /api/entries/{id}/export` `{sections[], filter}` | Returns the HTML file as an attachment | §6.4 |
 | `POST /api/entries/{id}/ai-brief/preview` → `{payload, token}` · `POST /api/entries/{id}/ai-brief {token}` | J5 | The token binds confirmation to the exact payload hash (FR-AI-2) |
+| `PUT /api/entries/{id}/ai-brief` `{sections, based_on}` · `POST /api/entries/{id}/ai-brief/restore` | Edit the brief, or bring back Claude's original (FR-AI-5) | Each save is a new `ai_brief` row; nothing is sent to Claude |
 | `GET /api/health` | Liveness: versions, workspace, disk usage | — |
 
 **Error envelope:** `{code, message, detail?}`.
@@ -442,6 +443,7 @@ The thresholds below come from `AnalysisConfig`. The defaults are Q2 and Q3 from
   - SDK `anthropic` 2.x. The model defaults to `claude-opus-5-5`, overridden by `CS2SCOUT_AI_MODEL`. The call streams with `max_tokens` 32000 and effort `high`. Output is `output_config.format` JSON schema. Models that support it get the `server-side-fallback-2026-07-01` beta with `fallbacks: "default"`. A `refusal` or `max_tokens` stop reason → `AI_UPSTREAM`.
   - Tokens are single-use, and one call per entry runs at a time (`CONFLICT_JOB_RUNNING`). The HMAC secret is per launch, so a restart invalidates open previews.
   - The `ai_brief` row stores `{sections, claims, dropped, filter}`. Staleness is computed as `entry_version != current_version`, not stored.
+- **Changed 2026-11-22 (#1, FR-AI-5):** the Analyst can edit the brief. An edit is saved as a new `ai_brief` row with the same `entry_version`, model and payload hash, so it is the latest brief and goes stale like the original. Its JSON adds `edited: true`, `original_at` (the `created_at` of Claude's row) and `written_at` (when Claude wrote it). Kept items keep their citations; the Analyst's own items carry `by: "analyst"` and none. **Restore original** copies Claude's row as a new row. No row is ever overwritten or deleted, so the history stays. The edit runs the export leak guard (`EXPORT_BLOCKED`). No schema change. An `@media print` stylesheet prints the brief without the app's header, filters, tabs and buttons.
 
 ## 7. Operations
 

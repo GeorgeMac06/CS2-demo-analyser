@@ -1,0 +1,33 @@
+<form class="card brief-edit" hx-post="/ui/entries/{{ entry.id }}/ai-brief/edit" hx-target="#brief-edit-error" aria-label="Edit the AI brief">
+  <h3 class="team-heading">Edit the brief</h3>
+  <p class="muted">Change any title or point (one point per line). Set the order with the numbers, or tick Delete.
+    Add your own item at the end of any section: it is marked "added by the analyst" and needs no evidence.
+    Claude's original is kept, and <strong>Restore original</strong> brings it back.</p>
+  <input type="hidden" name="based_on" value="{{ brief.created_at }}">
+  {% for s in brief.sections %}{% set i = loop.index0 %}
+  <fieldset class="edit-section">
+    <legend>{{ s.title }}</legend>
+    {% for c in s.claims %}{% set j = loop.index0 %}
+    <div class="edit-item">
+      <div class="row">
+        <label>Order <input class="order" type="number" name="o-{{ i }}-{{ j }}" value="{{ j + 1 }}" min="1" max="99"></label>
+        <label class="grow">Title <input name="t-{{ i }}-{{ j }}" value="{{ c.title or c.text }}" maxlength="300"></label>
+        <label><input type="checkbox" name="d-{{ i }}-{{ j }}"> Delete</label>
+        {% if c.by == "analyst" %}<span class="chip">added by the analyst</span>{% endif %}
+      </div>
+      <label class="block">Points <textarea name="p-{{ i }}-{{ j }}" rows="{{ [(c.points or []) | length, 1] | max }}">{{ (c.points or []) | join("\n") }}</textarea></label>
+    </div>
+    {% endfor %}
+    <div class="edit-item new">
+      <div class="row">
+        <label>Order <input class="order" type="number" name="o-{{ i }}-new" value="{{ s.claims | length + 1 }}" min="1" max="99"></label>
+        <label class="grow">Your own item <input name="t-{{ i }}-new" maxlength="300" placeholder="Title"></label>
+      </div>
+      <label class="block">Points <textarea name="p-{{ i }}-new" rows="1" placeholder="One point per line"></textarea></label>
+    </div>
+  </fieldset>
+  {% endfor %}
+  <div id="brief-edit-error" aria-live="polite"></div>
+  <p class="row"><button type="submit">Save edit</button>
+    <a class="button secondary" href="/entries/{{ entry.id }}?tab=brief">Cancel</a></p>
+</form>
