@@ -196,7 +196,8 @@ flowchart TD
   U2(["Click a tab or change a filter<br/>GET /ui/entries/{id}/tab/{tab}"]):::user --> UT["web/pages.py<br/>ui_tab() → _filter()"]:::web
   EP --> GE["web/api.py<br/>get_entry()"]:::web
   U0(["Open a team<br/>GET /teams/{id}"]):::user --> TP["web/pages.py<br/>team_page()"]:::web
-  TP --> GT["web/api.py<br/>get_team() → _team_map() per map"]:::web
+  TP --> GT["web/api.py<br/>get_team() → _team_groups() → _team_map() per map"]:::web
+  GT --> GG["core/team.py<br/>group_teams() · main_five()"]:::core
   GT --> VD
   GT --> FS
   EP --> TC

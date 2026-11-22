@@ -293,9 +293,9 @@ The API is unversioned: there is a single client, the same release's templates. 
 | `POST /api/entries/{id}/export` `{sections[], filter}` | Returns the HTML file as an attachment | §6.4 |
 | `POST /api/entries/{id}/ai-brief/preview` → `{payload, token}` · `POST /api/entries/{id}/ai-brief {token}` | J5 | The token binds confirmation to the exact payload hash (FR-AI-2) |
 | `GET /api/health` | Liveness: versions, workspace, disk usage | — |
-| `GET /teams/{id}` · `GET /api/teams/{id}` | Team page: one row per map (FR-LIB-6) | Reads each map's saved round index, unfiltered. Nicknames only. |
+| `GET /teams/{id}` · `GET /api/teams/{id}` | Team page: one row per map (FR-LIB-6) | Reads each map's saved round index, unfiltered, and who played each demo (`player_rounds.parquet`). Any row of a team gives the same page. Nicknames only. |
 
-**Changed 2026-11-22 (#14):** added the team page. The library groups its entries by team, and each team links to `/teams/{id}`. No schema change: `team` and `entry.team_id` already exist (FR-LIB-5).
+**Changed 2026-11-22 (#14):** added the team page. The library groups its entries by team, and each team links to `/teams/{id}`. No schema change: `team` and `entry.team_id` already exist (FR-LIB-5). One team can have several `team` rows (a new import saved as a new team, often with a stand-in), so the page groups rows with `core.team.group_teams`: the row with the most demos founds a group, and another row joins when at least 3 of its main five (most demos played, from its analyses' `player_rounds`; the confirmed core if none is computed) are in the group's main five. Nothing is merged in the database.
 
 **Error envelope:** `{code, message, detail?}`.
 

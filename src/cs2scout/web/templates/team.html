@@ -8,9 +8,14 @@
 <h1>{{ team.name }}</h1>
 <p class="muted">{{ team.maps | length }} map{{ "s" if team.maps | length != 1 }}, most demos first.
   Each map is its own analysis.</p>
-{% if team.roster %}
-<p>Roster:
-  {% for p in team.roster %}{{ p.nick }}{% if p.role == "standin" %} <span class="chip">stand-in</span>{% endif %}{{ ", " if not loop.last }}{% endfor %}</p>
+{% if team.aliases %}<p class="muted">Also named {{ team.aliases | join(", ") }} in some analyses.</p>{% endif %}
+{% macro played(p) %}{{ p.nick }}{% if team.demos %} <span class="muted">({{ p.demos }} of {{ team.demos }} demos)</span>{% endif %}{% endmacro %}
+{% set main = team.roster | selectattr("main") | list %}
+{% set others = team.roster | rejectattr("main") | list %}
+{% if main %}
+<p>Main roster: {% for p in main %}{{ played(p) }}{{ ", " if not loop.last }}{% endfor %}</p>
+{% if others %}<p>Also played: {% for p in others %}{{ played(p) }}{{ ", " if not loop.last }}{% endfor %}</p>{% endif %}
+<p class="muted">The main roster is the five players seen in the most demos. An analysis whose main five share at least 3 players with them counts as this team, so a stand-in or a renamed team doesn't split it.</p>
 {% endif %}
 <div class="card table-wrap">
   <table>

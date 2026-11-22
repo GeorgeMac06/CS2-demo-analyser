@@ -89,14 +89,12 @@ def _snapshot(request: Request, entry_id: int, flt: RoundFilter | None = None) -
 @router.get("/", response_class=HTMLResponse)
 def library_page(request: Request) -> HTMLResponse:
     entries = api.list_entries(request)
-    # One group per team (FR-LIB-6). The team updated most recently comes first.
-    teams: dict[int, dict] = {}
-    for e in entries:
-        group = teams.setdefault(e["team_id"], {"id": e["team_id"], "name": e["team"],
-                                                "entries": []})  # fmt: skip
-        group["entries"].append(e)
+    # One group per team (FR-LIB-6), even when a team has several rows: rows that share 3 of
+    # their main five players are one team. The team updated most recently comes first.
+    teams = [t | {"entries": [e for e in entries if e["team_id"] in t["ids"]]}
+             for t in api.team_groups(request)]  # fmt: skip
     home = request.app.state.settings.home
-    return _page(request, "library.html", entries=entries, teams=list(teams.values()),
+    return _page(request, "library.html", entries=entries, teams=teams,
                  assets_ok=assets.installed(home),
                  usage=usage(home, api.prefs_of(request).workspace_cap_gb))  # fmt: skip
 

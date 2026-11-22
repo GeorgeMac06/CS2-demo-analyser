@@ -11,7 +11,7 @@
 {% for t in teams %}
 <section class="card table-wrap" aria-labelledby="team-{{ t.id }}">
   <h2 id="team-{{ t.id }}" class="team-heading"><a href="/teams/{{ t.id }}">{{ t.name }}</a>
-    <span class="muted">· {{ t.entries | length }} map{{ "s" if t.entries | length != 1 }}</span></h2>
+    <span class="muted">· {{ t.entries | length }} map{{ "s" if t.entries | length != 1 }}{% if t.aliases %} · also named {{ t.aliases | join(", ") }}{% endif %}</span></h2>
   <table>
     <thead><tr><th>Analysis</th><th>Map</th><th class="num">Demos</th>
       <th>Match dates</th><th>Updated</th></tr></thead>
