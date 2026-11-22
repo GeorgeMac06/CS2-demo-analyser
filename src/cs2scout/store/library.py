@@ -458,6 +458,12 @@ class Library:
         with self.transaction() as db:
             db.execute(f"UPDATE job SET {', '.join(sets)} WHERE job_id = ?", (*params, job_id))  # noqa: S608
 
+    def mark_import_confirmed(self, job_id: str, entry_id: int) -> None:
+        """A first import became this entry: its demos are no longer waiting for a roster."""
+        with self.transaction() as db:
+            db.execute("UPDATE job SET entry_id = ? WHERE job_id = ? AND kind = 'import'",
+                       (entry_id, job_id))  # fmt: skip
+
     def get_job(self, job_id: str) -> dict | None:
         rows = self._query("SELECT * FROM job WHERE job_id = ?", (job_id,))
         if not rows:

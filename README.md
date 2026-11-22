@@ -89,7 +89,7 @@ Everything lives in the workspace folder. Its path is shown on the Settings page
 
 - **Back up:** stop the app, then copy the whole folder.
 - **Restore:** copy the folder back, or set `CS2SCOUT_HOME` to wherever the copy is.
-- **Disk space:** deleting an analysis removes its results only. The parsed data and retained copies of its demos stay, so importing them again is instant; there is no cleanup command yet. Retained copies are the largest part, so turning them off in Settings saves the most space on new imports.
+- **Disk space:** deleting an analysis removes its results only. The parsed data and retained copies of its demos stay, so importing them again is instant. To remove them, use **Free up space** on the Settings page, or run `uv run cs2scout free-space` (add `--yes` to skip the question). Both list what will go and how much space that frees before removing anything. They never touch a demo an analysis uses, an import waiting for its roster to be confirmed (for a day), or anything while an import is running. Retained copies are the largest part, so turning them off in Settings saves the most space on new imports.
 
 ## Map images and sharing exports
 
@@ -118,3 +118,35 @@ Real demos go in `tests/local_fixtures/demos/`. That folder is never committed, 
 The AI tests run the real Anthropic SDK against a fake HTTP transport, so they need no key and make no network calls.
 
 Diagrams of how the app works (journeys, import, analysis, state machines, data model) are in [docs/workflows](docs/workflows/README.md).
+
+### Review a pull request
+
+Run the PR in its own folder and its own workspace, next to your normal app on main. Your real workspace then only ever runs main. That matters because a PR's "Try it" steps may delete or change data, and an analysis built by newer code stays on screen when you go back to main.
+
+**Once:** in the repo folder, make a review folder. It needs the GitHub CLI (`gh`).
+
+```powershell
+git worktree add --detach ..\cs2-demo-scout-review origin/main
+```
+
+**For each PR:** stop the review app if it is running, then:
+
+```powershell
+cd ..\cs2-demo-scout-review
+gh pr checkout <number> --detach
+$env:CS2SCOUT_HOME = "$env:LOCALAPPDATA\CS2DemoScout-review"
+$env:CS2SCOUT_PORT = 8766
+uv run cs2scout
+```
+
+The first time, the app starts with an empty review workspace: import the demos you test with. Later PRs reuse them.
+
+1. Open the analysis and rebuild it, as the first line of the PR's "Try it" says. If the page says the analysis was built by an older version, click **Update now**.
+2. Follow the rest of "Try it".
+3. For the "before", run your normal app from the repo folder (`uv run cs2scout`, port 8765) and compare the two tabs.
+
+Why it works this way:
+
+- `--detach` checks out the PR's commit without its branch. That works even while a Claude session has the branch open in its own folder (git allows a branch in one folder only), and you get exactly what is on GitHub.
+- The app shows each analysis as it was last built. It offers **Update now** only when the PR bumps `SCHEMA_VERSION` or your Settings changed. If a PR changes the output without a bump, or the PR you reviewed before had the same or a higher number, you still see the old build. To rebuild it, open the **Demos** tab and click **Apply** on any demo without changing anything.
+- A running app locks its folder's packages, so stop it before you check out the next PR.

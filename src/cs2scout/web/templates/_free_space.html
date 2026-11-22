@@ -1,0 +1,35 @@
+<div id="free-space">
+{% if error %}<p role="alert"><span class="chip bad">not removed</span> {{ error }}</p>
+{% elif freed %}
+  <p role="status"><span class="chip ok">done</span> Freed {{ freed.freed_bytes | size }}: removed {{ freed.removed_demos }} demo{{ "s" if freed.removed_demos != 1 }}{% if freed.removed_folders %} and {{ freed.removed_folders }} leftover folder{{ "s" if freed.removed_folders != 1 }}{% endif %}.</p>
+  {% if freed.left %}<p class="muted">Some files were in use and stay: {% for p in freed.left %}<code class="path">{{ p }}</code>{% if not loop.last %}, {% endif %}{% endfor %}. Check again later.</p>{% endif %}
+{% elif report %}
+  {% if report.busy %}
+  <p role="status">An import is running. Check again when it has finished.</p>
+  {% elif not report.demos and not report.folders %}
+  <p role="status">Nothing to remove. Every demo in the workspace belongs to an analysis.</p>
+  {% else %}
+  <form hx-post="/ui/storage/free" hx-target="#free-space" hx-swap="outerHTML" aria-label="Free up space">
+    <table>
+      <caption>No analysis uses these</caption>
+      <thead><tr><th>Demo</th><th>Map</th><th>Date</th><th class="num">Demo copy</th><th class="num">Parsed data</th></tr></thead>
+      <tbody>
+      {% for d in report.demos %}
+        <tr><td class="path">{{ d.file or d.sha256[:8] }}<input type="hidden" name="demo" value="{{ d.sha256 }}"></td>
+          <td>{{ d.map }}</td><td>{{ d.played_at[:10] if d.played_at }}</td>
+          <td class="num">{{ d.copy_bytes | size }}</td><td class="num">{{ d.parsed_bytes | size }}</td></tr>
+      {% endfor %}
+      {% for f in report.folders %}
+        <tr><td class="path" colspan="3">Leftover folder <code>{{ f.path }}</code><input type="hidden" name="folder" value="{{ f.path }}"></td>
+          <td class="num" colspan="2">{{ f.bytes | size }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="muted">You can import a removed demo again, but it is parsed again, which takes a minute or two per demo.</p>
+    <button type="submit">Free up {{ report.total_bytes | size }}</button>
+  </form>
+  {% endif %}
+  {% if report.kept %}<p class="muted">Kept: {{ report.kept }} demo{{ "s" if report.kept != 1 }} from an import that is waiting for its roster to be confirmed.</p>{% endif %}
+{% endif %}
+  <p><button type="button" class="secondary" hx-get="/ui/storage/unused" hx-target="#free-space" hx-swap="outerHTML">{% if report or freed or error %}Check again{% else %}Check what can go{% endif %}</button></p>
+</div>

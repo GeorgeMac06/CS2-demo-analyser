@@ -62,7 +62,10 @@ class PlaceIndex:
         ).group_by("cx", "cy", "place").len()  # fmt: skip
         for cx, cy, place, n in frame.iter_rows():
             cells[(cx, cy)][place] += n
-        self._cells = {k: c.most_common(1)[0][0] for k, c in cells.items()}
+        # The most seen place; on a tie, the first name in alphabetical order. The group-by
+        # above returns rows in any order, so "first seen" would differ from run to run (T-09).
+        self._cells = {k: min(c.items(), key=lambda kv: (-kv[1], kv[0]))[0]
+                       for k, c in cells.items()}  # fmt: skip
 
     def place(self, x: float | None, y: float | None) -> str:
         if x is None or y is None:
