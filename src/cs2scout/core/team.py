@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
 
 import polars as pl
@@ -168,3 +169,48 @@ def _team_name(demos: list[DemoLineups], scouted: dict[str, str | None]) -> str 
         if d.clans.get(p)
     )
     return names.most_common(1)[0][0] if names else None
+
+
+# ---------------------------------------------------------------- one team across analyses
+
+SAME_TEAM_CORE = 3  # as in a Major's roster rule: 3 of the main five keep a team the same
+
+
+@dataclass(frozen=True)
+class TeamSeen:
+    """One team row of the library, as far as telling teams apart goes (FR-LIB-6)."""
+
+    team_id: int
+    demos: int  # demos in its computed analyses
+    presence: dict[int, int]  # steamid -> demos played, over those analyses
+    core: frozenset[int]  # the confirmed core; it decides when nothing is computed yet
+
+
+def main_five(presence: Mapping[int, int], core: Collection[int] = ()) -> tuple[int, ...]:
+    """The five players seen in the most demos; ties go to confirmed core players."""
+    ranked = sorted(set(presence) | set(core),
+                    key=lambda p: (-presence.get(p, 0), p not in core, p))  # fmt: skip
+    return tuple(ranked[:5])
+
+
+def group_teams(teams: list[TeamSeen]) -> list[list[int]]:
+    """Team rows that are one team, each group's founding row first.
+
+    A substitute, or importing a map without picking the existing team, gives one team
+    several rows. The row with the most demos founds a group. Another row joins it when at
+    least 3 of its main five are in the group's main five, which is recounted over all of
+    the group's demos as rows join. So a group can change two players and stay the same
+    team, but not three (owner rule, 2026-11-22).
+    """
+    groups: list[tuple[list[int], Counter[int], set[int]]] = []
+    for team in sorted(teams, key=lambda t: (-t.demos, t.team_id)):
+        mine = set(main_five(team.presence, team.core))
+        for ids, presence, core in groups:
+            if len(mine & set(main_five(presence, core))) >= SAME_TEAM_CORE:
+                ids.append(team.team_id)
+                presence.update(team.presence)
+                core |= team.core
+                break
+        else:
+            groups.append(([team.team_id], Counter(team.presence), set(team.core)))
+    return [ids for ids, _, _ in groups]

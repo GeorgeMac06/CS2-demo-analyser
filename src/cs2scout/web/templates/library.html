@@ -8,22 +8,26 @@
   drawn on the map. Run <code>uv run cs2scout assets fetch</code> once, then restart.</div>
 {% endif %}
 {% if entries %}
-<div class="card table-wrap">
+{% for t in teams %}
+<section class="card table-wrap" aria-labelledby="team-{{ t.id }}">
+  <h2 id="team-{{ t.id }}" class="team-heading"><a href="/teams/{{ t.id }}">{{ t.name }}</a>
+    <span class="muted">· {{ t.entries | length }} map{{ "s" if t.entries | length != 1 }}{% if t.aliases %} · also named {{ t.aliases | join(", ") }}{% endif %}</span></h2>
   <table>
-    <thead><tr><th>Analysis</th><th>Team</th><th>Map</th><th class="num">Demos</th>
+    <thead><tr><th>Analysis</th><th>Map</th><th class="num">Demos</th>
       <th>Match dates</th><th>Updated</th></tr></thead>
     <tbody>
-    {% for e in entries %}
+    {% for e in t.entries %}
       <tr>
         <td><a href="/entries/{{ e.id }}">{{ e.name }}</a>{% if e.busy %} <span class="chip">updating</span>{% endif %}</td>
-        <td>{{ e.team }}</td><td>{{ e.map }}</td><td class="num">{{ e.demo_count }}</td>
+        <td>{{ e.map }}</td><td class="num">{{ e.demo_count }}</td>
         <td>{% if e.date_range %}{{ e.date_range[0][:10] }} – {{ e.date_range[1][:10] }}{% else %}—{% endif %}</td>
         <td class="muted">{{ e.updated_at[:16].replace("T", " ") }}</td>
       </tr>
     {% endfor %}
     </tbody>
   </table>
-</div>
+</section>
+{% endfor %}
 {% else %}
 <div class="card">
   <h2>No analyses yet</h2>

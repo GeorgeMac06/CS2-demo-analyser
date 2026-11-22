@@ -4,7 +4,7 @@
 <div class="row">
   <div>
     <h1>{{ entry.name }}</h1>
-    <p class="muted">{{ entry.team }} · {{ entry.map }} · {{ entry.demo_count }} demo{{ "s" if entry.demo_count != 1 }}{% if entry.included_count != entry.demo_count %} ({{ entry.included_count }} included){% endif %}
+    <p class="muted"><a href="/teams/{{ entry.team_id }}">{{ entry.team }}</a> · {{ entry.map }} · {{ entry.demo_count }} demo{{ "s" if entry.demo_count != 1 }}{% if entry.included_count != entry.demo_count %} ({{ entry.included_count }} included){% endif %}
       {% if entry.date_range %}· {{ entry.date_range[0][:10] }} – {{ entry.date_range[1][:10] }}{% endif %}
       {% if snapshot %}· version {{ snapshot.entry.version }}{% endif %}
       {% if entry.busy %}<span class="chip">updating…</span>{% endif %}</p>

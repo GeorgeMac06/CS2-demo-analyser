@@ -9,9 +9,12 @@ import dataclasses
 import json
 import sqlite3
 import time
+from collections import Counter
 from datetime import date
+from functools import lru_cache
 from typing import Annotated, Literal
 
+import polars as pl
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel, Field
 
@@ -22,6 +25,7 @@ from cs2scout.ai import payload as ai_payload
 from cs2scout.core.errors import ErrorCode
 from cs2scout.core.findings import RoundFilter
 from cs2scout.core.labels import apply as apply_labels
+from cs2scout.core.team import TeamSeen, group_teams, main_five
 from cs2scout.jobs.analysis import run_recompute
 from cs2scout.jobs.import_job import ImportOptions, run_import
 from cs2scout.jobs.runner import JobConflict, JobContext
@@ -205,6 +209,113 @@ def get_entry(entry_id: int, request: Request) -> dict:
                   for d in lib.entry_demos(entry_id)],
         "roster": [{"steamid": str(r["steamid"]), "role": r["role"], "nick": r["last_nick"]}
                    for r in lib.roster(entry.team_id)],
+    }  # fmt: skip
+
+
+@lru_cache(maxsize=256)
+def _played_in(path: str, _stamp: tuple[int, int]) -> tuple[tuple[int, str], ...]:
+    """(steamid, demo) for every scouted player of one saved analysis. Cached per file."""
+    played = pl.read_parquet(path, columns=["steamid", "demo"]).unique()
+    return tuple(zip(played["steamid"].to_list(), played["demo"].to_list(), strict=True))
+
+
+def _team_seen(lib, team_id: int, entries: list) -> TeamSeen:
+    """Who played how many demos for one team row, over its computed analyses."""
+    roster = {r["steamid"]: r["role"] for r in lib.roster(team_id)}
+    members = {s for s, role in roster.items() if role in ("core", "standin")}
+    presence: Counter[int] = Counter()
+    demos = 0
+    for entry in entries:
+        vdir = lib.current_version_dir(entry.entry_id)
+        path = vdir / "player_rounds.parquet" if vdir else None
+        if path is None or not path.exists():
+            continue
+        stat = path.stat()
+        pairs = _played_in(str(path), (stat.st_mtime_ns, stat.st_size))
+        demos += len({demo for _, demo in pairs})
+        presence.update(s for s, _ in pairs if s in members)
+    core = frozenset(s for s, role in roster.items() if role == "core")
+    return TeamSeen(team_id, demos, dict(presence), core)
+
+
+def _team_groups(request: Request) -> list[tuple[list[int], dict[int, TeamSeen]]]:
+    """Team rows grouped into real teams (``core.team.group_teams``), the group with the most
+    recently updated analysis first."""
+    lib = _state(request).library
+    by_team: dict[int, list] = {}
+    for entry in lib.list_entries():  # most recently updated first
+        by_team.setdefault(entry.team_id, []).append(entry)
+    seen = {t: _team_seen(lib, t, entries) for t, entries in by_team.items()}
+    order = list(by_team)
+    groups = sorted(group_teams(list(seen.values())),
+                    key=lambda ids: min(order.index(i) for i in ids))  # fmt: skip
+    return [(ids, {i: seen[i] for i in ids}) for ids in groups]
+
+
+def team_groups(request: Request) -> list[dict]:
+    """The library's teams, one per real team: ids, name, and other names its rows use."""
+    names = {t["team_id"]: t["display_name"] for t in _state(request).library.list_teams()}
+    return [{"id": ids[0], "ids": ids, "name": names[ids[0]],
+             "aliases": [n for n in dict.fromkeys(names[i] for i in ids) if n != names[ids[0]]]}
+            for ids, _ in _team_groups(request)]  # fmt: skip
+
+
+@router.get("/teams/{team_id}")
+def get_team(team_id: int, request: Request) -> dict:
+    """FR-LIB-6: one team's analyses, one row per map, most demos first. Nicknames only.
+
+    ``team_id`` may be any of the team's rows: rows that share 3 of their main five players
+    are one team (``core.team.group_teams``), so all their maps show here.
+    """
+    lib = _state(request).library
+    if lib.get_team(team_id) is None:
+        raise not_found("team")
+    ids, seen = next(((ids, seen) for ids, seen in _team_groups(request) if team_id in ids),
+                     ([team_id], {team_id: _team_seen(lib, team_id, [])}))  # fmt: skip
+    presence: Counter[int] = Counter()
+    core: set[int] = set()
+    for s in seen.values():
+        presence.update(s.presence)
+        core |= s.core
+    nicks: dict[int, str] = {}
+    for i in reversed(ids):  # the founding row's nickname wins
+        nicks |= {r["steamid"]: r["last_nick"] for r in lib.roster(i) if r["last_nick"]}
+    five = main_five(presence, core)
+
+    def shown(p: int) -> tuple:  # most demos first, then by nickname
+        return (-presence.get(p, 0), nicks.get(p, "?").casefold(), p)
+
+    others = sorted((p for p in presence if p not in five), key=shown)
+    five = tuple(sorted(five, key=shown))
+    low = prefs_of(request).analysis.low_sample_rounds
+    maps = [_team_map(request, e, low) for e in lib.list_entries() if e.team_id in ids]
+    names = list(dict.fromkeys(lib.get_team(i)["display_name"] for i in ids))
+    return {
+        "id": ids[0], "ids": ids, "name": names[0], "aliases": names[1:],
+        "demos": sum(s.demos for s in seen.values()), "low_sample_rounds": low,
+        "roster": [{"nick": nicks.get(p, "?"), "demos": presence.get(p, 0), "main": p in five}
+                   for p in [*five, *others]],
+        "maps": sorted(maps, key=lambda m: (-m["demo_count"], m["map"])),
+    }  # fmt: skip
+
+
+def _team_map(request: Request, entry, low_sample_rounds: int) -> dict:
+    """An entry's row on the team page: its sample and record, from the saved analysis."""
+    row = _entry_json(request, entry)
+    vdir = _state(request).library.current_version_dir(entry.entry_id)
+    if vdir is None:
+        return row | {"computed": False}
+    rounds = filtered_snapshot(vdir, RoundFilter())["round_index"]
+    sides = {}
+    for side in ("T", "CT"):
+        mine = [r for r in rounds if r["side"] == side]
+        won = sum(1 for r in mine if r["won"])
+        sides[side] = {"rounds": len(mine), "won": won, "lost": len(mine) - won}
+    won = sum(s["won"] for s in sides.values())
+    return row | {
+        "computed": True, "rounds": len(rounds), "won": won, "lost": len(rounds) - won,
+        "sides": sides,
+        "low_sample": [side for side, s in sides.items() if s["rounds"] < low_sample_rounds],
     }  # fmt: skip
 
 

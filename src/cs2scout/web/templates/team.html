@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% macro record(won, lost) -%}
+  {{ won }}–{{ lost }}{% if won + lost %} <span class="muted">({{ (100 * won / (won + lost)) | round | int }}%)</span>{% endif %}
+{%- endmacro %}
+{% block title %}{{ team.name }} · CS2 Demo Scout{% endblock %}
+{% block main %}
+<p class="muted"><a href="/">Library</a></p>
+<h1>{{ team.name }}</h1>
+<p class="muted">{{ team.maps | length }} map{{ "s" if team.maps | length != 1 }}, most demos first.
+  Each map is its own analysis.</p>
+{% if team.aliases %}<p class="muted">Also named {{ team.aliases | join(", ") }} in some analyses.</p>{% endif %}
+{% macro played(p) %}{{ p.nick }}{% if team.demos %} <span class="muted">({{ p.demos }} of {{ team.demos }} demos)</span>{% endif %}{% endmacro %}
+{% set main = team.roster | selectattr("main") | list %}
+{% set others = team.roster | rejectattr("main") | list %}
+{% if main %}
+<p>Main roster: {% for p in main %}{{ played(p) }}{{ ", " if not loop.last }}{% endfor %}</p>
+{% if others %}<p>Also played: {% for p in others %}{{ played(p) }}{{ ", " if not loop.last }}{% endfor %}</p>{% endif %}
+<p class="muted">The main roster is the five players seen in the most demos. An analysis whose main five share at least 3 players with them counts as this team, so a stand-in or a renamed team doesn't split it.</p>
+{% endif %}
+<div class="card table-wrap">
+  <table>
+    <thead><tr><th>Map</th><th class="num">Demos</th><th class="num">Rounds</th>
+      <th class="num">Won–lost</th><th class="num">T side</th><th class="num">CT side</th>
+      <th>Match dates</th><th>Sample</th></tr></thead>
+    <tbody>
+    {% for m in team.maps %}
+      <tr>
+        <td><a href="/entries/{{ m.id }}">{{ m.map }}</a>{% if m.busy %} <span class="chip">updating</span>{% endif %}</td>
+        <td class="num">{{ m.demo_count }}{% if m.included_count != m.demo_count %} <span class="muted">({{ m.included_count }} included)</span>{% endif %}</td>
+        {% if m.computed %}
+        <td class="num">{{ m.rounds }}</td>
+        <td class="num">{{ record(m.won, m.lost) }}</td>
+        <td class="num">{{ record(m.sides.T.won, m.sides.T.lost) }}</td>
+        <td class="num">{{ record(m.sides.CT.won, m.sides.CT.lost) }}</td>
+        {% else %}
+        <td colspan="4" class="muted">Not computed yet.</td>
+        {% endif %}
+        <td>{% if m.date_range %}{{ m.date_range[0][:10] }} – {{ m.date_range[1][:10] }}{% else %}—{% endif %}</td>
+        <td>{% if m.computed %}{% for side in m.low_sample %}<span class="chip warn" title="Fewer than {{ team.low_sample_rounds }} {{ side }} rounds: treat this side's numbers as hints, not patterns.">low sample: {{ side }}</span> {% else %}<span class="muted">ok</span>{% endfor %}{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="muted">Rounds and records count every included demo, with no filters. "Low sample" uses the limit in <a href="/settings">Settings</a> ({{ team.low_sample_rounds }} rounds per side).</p>
+{% endblock %}
