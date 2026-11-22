@@ -10,8 +10,9 @@ on:
     types: [opened, reopened, edited, labeled, unlabeled, synchronize]
 
 permissions:
-  issues: write # PR labels go through the issues API
-  pull-requests: read
+  # PR labels go through the issues API, but GitHub checks pull-requests: write for a PR.
+  issues: write
+  pull-requests: write
 
 jobs:
   version-label:

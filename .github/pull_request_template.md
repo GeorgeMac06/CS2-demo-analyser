@@ -9,6 +9,10 @@ Closes #
 - [ ] Also `breaking` (add the label by hand): an existing workspace, command or setting stops working
 
 ## Try it
+<!-- How to run a PR: README, "Review a pull request". Keep the next two lines. -->
+Rebuild the analysis first: <!-- "Update now" if SCHEMA_VERSION changed; "Demos tab, Apply" if the output changes without a bump; otherwise "not needed". -->
+Changes or deletes data: <!-- yes (say which steps), or no. -->
+
 <!-- Which tab or page to open, what to click, what to look for. If there is nothing to see in the app, say so in one line. -->
 
 ## Testing

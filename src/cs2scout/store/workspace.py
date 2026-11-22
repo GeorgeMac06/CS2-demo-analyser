@@ -20,7 +20,7 @@ def init_workspace(home: Path) -> Path:
 AREAS = {"demos": "Retained demos", "extracts": "Parsed data", "entries": "Analyses"}
 
 
-def _size(path: Path) -> int:
+def folder_size(path: Path) -> int:
     total = 0
     for root, _dirs, files in os.walk(path):
         for name in files:
@@ -31,10 +31,20 @@ def _size(path: Path) -> int:
     return total
 
 
+def readable(n: int | None) -> str:
+    """Bytes for people, in decimal units."""
+    value = float(n or 0)
+    for unit in ("B", "KB", "MB", "GB"):
+        if value < 1000:
+            return f"{value:.0f} {unit}" if unit == "B" else f"{value:.1f} {unit}"
+        value /= 1000
+    return f"{value:.1f} TB"
+
+
 def usage(home: Path, cap_gb: float | None = None) -> dict:
     """Bytes used per area, free space on the drive, and whether the cap is exceeded."""
-    areas = {name: _size(home / name) for name in AREAS}
-    total = _size(home)
+    areas = {name: folder_size(home / name) for name in AREAS}
+    total = folder_size(home)
     cap = int(cap_gb * 1e9) if cap_gb else None
     return {"total_bytes": total, "areas": areas | {"other": total - sum(areas.values())},
             "free_bytes": shutil.disk_usage(home).free, "cap_bytes": cap,

@@ -25,7 +25,7 @@ from cs2scout.core.labels import apply as apply_labels
 from cs2scout.jobs.analysis import run_recompute
 from cs2scout.jobs.import_job import ImportOptions, run_import
 from cs2scout.jobs.runner import JobConflict, JobContext
-from cs2scout.store import prefs
+from cs2scout.store import cleanup, prefs
 from cs2scout.store.workspace import usage
 from cs2scout.web.errors import ApiError, not_found
 from cs2scout.web.findings_view import filtered_snapshot
@@ -140,6 +140,9 @@ def create_entry(body: CreateEntry, request: Request) -> dict:
             409, ErrorCode.IMPORT_NOT_READY, "the import has not finished or accepted no demos"
         )
     result = job["result"]
+    if any(lib.get_demo(sha) is None for sha in result["accepted"]):
+        raise ApiError(409, ErrorCode.IMPORT_NOT_READY, "This import's demos were removed by "
+                       "Free up space. Import them again.")  # fmt: skip
     nicks = {p["steamid"]: p["nick"] for p in result["roster_proposal"]["players"]}
     if body.team_id is not None:
         team = lib.get_team(body.team_id)
@@ -165,6 +168,7 @@ def create_entry(body: CreateEntry, request: Request) -> dict:
         ) from exc
     lib.set_roster(team_id, players)
     lib.add_entry_demos(entry_id, result["accepted"])
+    lib.mark_import_confirmed(body.import_job_id, entry_id)
     for sha, lineup in body.lineup_overrides.items():
         lib.set_entry_demo(entry_id, sha, lineup_override=lineup)
     return {"entry_id": entry_id, "team_id": team_id, "job_id": _recompute_job(request, entry_id)}
@@ -627,6 +631,33 @@ def put_settings(body: SettingsBody, request: Request) -> dict:
                         workspace_cap_gb=body.workspace_cap_gb, port=body.port)  # fmt: skip
     prefs.save(_state(request).settings.home, saved)
     return settings_json(request)
+
+
+# ---------------------------------------------------------------- free up space (issue #9)
+
+
+class FreeBody(BaseModel):
+    """What the Analyst saw in ``GET /storage/unused`` and agreed to remove."""
+
+    demos: list[str] = Field(default=[], max_length=10000)
+    folders: list[str] = Field(default=[], max_length=10000)
+
+
+@router.get("/storage/unused")
+def storage_unused(request: Request) -> dict:
+    """Parsed data and demo copies no analysis uses, with what removing them frees."""
+    return cleanup.unused(_state(request).library)
+
+
+@router.post("/storage/free")
+def storage_free(body: FreeBody, request: Request) -> dict:
+    """Removes the listed demos and folders that are still unused. Never touches an
+    analysis's demos or an import waiting for its roster to be confirmed."""
+    try:
+        return cleanup.free(_state(request).library, body.demos, body.folders)
+    except cleanup.StorageBusy as exc:
+        raise ApiError(409, ErrorCode.CONFLICT_JOB_RUNNING, "An import is running. Try again "
+                       "when it has finished.") from exc  # fmt: skip
 
 
 @router.get("/entries/{entry_id}/ai-brief/markdown")

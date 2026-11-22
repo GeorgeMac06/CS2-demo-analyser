@@ -181,6 +181,7 @@ logs/app.log                     # rotating
 
 **Lifecycle:**
 - A demo is deleted from the workspace when no entry references it. This is a garbage collection run after an entry is deleted or a demo is removed, and it asks the Analyst to confirm.
+  - **Changed 2026-11-21 (#9, as built):** the collection is the Analyst's **Free up space** action (Settings page, `cs2scout free-space`), not automatic. It lists every demo no entry references, with its retained copy and parsed data sizes, plus per-demo folders the library has no row for (left by a crash), and removes only what was listed and is still unused. It keeps the demos of an import that finished in the last 24 h and was never confirmed (confirming sets the import job's `entry_id`), and it removes nothing while an import is queued or running. Library rows go first in one `BEGIN IMMEDIATE` transaction that checks again; folders go after. Confirming an import whose demos were removed gives `IMPORT_NOT_READY`. Old extracts of used demos stay: they are the fallback when no source copy is kept.
 - Entry versions keep only `current` and `current-1`. Older versions are pruned after a successful swap.
 
 ### 5.2 Canonical extract (parser → core contract)
@@ -473,7 +474,7 @@ The thresholds below come from `AnalysisConfig`. The defaults are Q2 and Q3 from
   - Recomputes use the saved thresholds. Each version folder records its `config.json`, which `findings_view` uses for filtered recounts. An analysis whose `config_hash` differs from the saved thresholds offers "Update now".
   - Disk use (`store/workspace.usage`) is shown on the Settings and library pages.
   - Exports take `maps: false` to leave the radar images out (U-6 / P-6).
-  - Garbage collection of unused extracts and sources is not built.
+  - Garbage collection of unused extracts and sources: **Free up space** (§5.1, issue #9).
 - **Burden:** one owner. There are no services, daemons or scheduled tasks to keep running.
 
 ## 8. Security model
