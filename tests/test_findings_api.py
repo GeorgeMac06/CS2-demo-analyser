@@ -10,6 +10,7 @@ import polars as pl
 import pytest
 
 from cs2scout.core.findings import SCHEMA_VERSION
+from cs2scout.core.positions import PlaceIndex
 from support.api import Api, finding, make_api
 from support.synth import lineup, simple_match, steamid, write_demo
 
@@ -156,6 +157,17 @@ def test_recompute_is_deterministic(api: Api, entry: int) -> None:
     assert stable(first) == stable(second)
     grids = [pl.read_parquet(lib.version_dir(entry, n) / "grids.parquet") for n in (1, 2)]
     assert grids[0].equals(grids[1])
+    stories = [(lib.version_dir(entry, n) / "stories.json").read_text() for n in (1, 2)]
+    assert stories[0] == stories[1]
+
+
+def test_a_spot_seen_as_often_in_two_places_gets_the_same_name_every_run() -> None:
+    """Grenades and kills are named after the place players stood at that spot. On a tie,
+    the name must not depend on the order the rows come in (T-09)."""
+    rows = [{"x": 10.0, "y": 10.0, "place": p}
+            for p in ("Underpass", "Catwalk", "Catwalk", "Underpass")]  # fmt: skip
+    for order in (rows, rows[::-1], rows[1:] + rows[:1], rows[2:] + rows[:2]):
+        assert PlaceIndex(pl.DataFrame(order)).place(12.0, 12.0) == "Catwalk"
 
 
 def test_adding_a_demo_recomputes_and_keeps_old_version_until_swap(
