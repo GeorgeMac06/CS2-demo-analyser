@@ -61,7 +61,7 @@ flowchart TD
   L --> M{"git log origin/main..HEAD<br/>only my commits?"}
   M -->|No| STOP["Stop and tell the owner"]
   M -->|Yes| N["Push and open the PR"]
-  N --> P["One label: semver:minor, patch or none<br/>plus breaking on 0.x if needed"]
+  N --> P["Title starts with MINOR:, FIX: or NONE:<br/>the check sets the label<br/>add breaking on 0.x if needed"]
   P --> Q["CI and review run"]
   Q --> R{"main moved and both<br/>bumped SCHEMA_VERSION?"}
   R -->|Yes| S["Merge main in, take the next free number<br/>never rebase"]
@@ -80,14 +80,14 @@ walks the owner through the change in the app, which gates ran and what was not 
 | G-browser | `pytest -m browser` | By hand, after `playwright install chromium` | Every PR and push to `main`, on Ubuntu |
 | G-demos | `pytest -m demos --require-demos` | By hand, with real demos | Never. Demos contain SteamIDs. |
 | Hygiene | `.github/scripts/hygiene.sh` | — | Every PR. Fails on demos, archives, local fixtures or a real-looking SteamID. |
-| Version label | `pr-labels.yml` | — | Every PR. Fails until there is exactly one `semver:*` label. |
+| Version label | `pr-labels.yml` | — | Every PR. Fails if the title doesn't start with `MAJOR:`, `MINOR:`, `FIX:` or `NONE:`. Otherwise sets the matching `semver:*` label. |
 
 ## Release
 
 ```mermaid
 flowchart LR
   A["PRs merge into main"] --> B["release-notes.yml<br/>updates the draft release<br/>next version from the labels"]
-  B --> C["Release X.Y.Z PR<br/>uv version X.Y.Z<br/>labels: release, semver:none"]
+  B --> C["PR: NONE: Release X.Y.Z<br/>uv version X.Y.Z<br/>label: release"]
   C --> D["Owner merges"]
   D --> E["Owner publishes the draft<br/>tag vX.Y.Z on main"]
   E --> F["release.yml<br/>tag = pyproject version?<br/>G-fast and G-browser on the tag"]
