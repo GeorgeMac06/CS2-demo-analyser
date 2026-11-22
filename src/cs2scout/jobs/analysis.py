@@ -85,7 +85,11 @@ def load_demos(ctx: JobContext | None, lib: Library, shas: list[str], adapter: s
             })  # fmt: skip
             if found is None:
                 continue
-        tables = read_tables(Path(found["path"]), None if full else LINEUP_TABLES)
+        # In this workspace, not at the saved ``path``: that is absolute, and a workspace that
+        # was copied or restored somewhere else must still work (README "Backup").
+        where = lib.extract_dir(sha, found["parser"], found["parser_version"],
+                                found["schema_version"])  # fmt: skip
+        tables = read_tables(where, None if full else LINEUP_TABLES)
         tick_rate = float(json.loads(found["manifest"])["header"]["tick_rate"])
         loaded.append(LoadedDemo(sha, demo_label(sha), row["played_at"], tick_rate,
                                  demo_lineups(sha, tables), tables))  # fmt: skip

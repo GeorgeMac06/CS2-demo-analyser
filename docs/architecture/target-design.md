@@ -169,7 +169,7 @@ logs/app.log                     # rotating
 | Table | Purpose |
 |---|---|
 | `demo` | sha256 (PK), match_key, map, played_at, rounds, status, source_retained, original_path?, imported_at |
-| `extract` | sha256, parser_name, parser_version, schema_version, path, row_counts, warnings |
+| `extract` | sha256, parser_name, parser_version, schema_version, path, row_counts, warnings. **Changed 2026-11-22:** `path` is absolute and only a record. Readers find an extract in the current workspace from its sha256, parser and schema, so a workspace copied to another folder still works. |
 | `team` | team_id, display_name. Shared across maps (FR-LIB-5). |
 | `team_player` | team_id, steamid, role, last_nick. `role` is one of core / standin / excluded (FR-TEAM-2/5). |
 | `entry` | entry_id, team_id, map, current_version, created/updated |
