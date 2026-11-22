@@ -41,3 +41,8 @@ categories:
 
 template: |
   $CHANGES
+
+# PR titles start with MINOR:, FIX: and so on. The section heading already says that.
+replacers:
+  - search: '/^- (MAJOR|MINOR|FIX|NONE): /gm'
+    replace: "- "

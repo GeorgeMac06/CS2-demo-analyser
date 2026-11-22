@@ -284,7 +284,8 @@ def test_payload_tells_each_round_on_the_round_timer(ai: Api, entry: int) -> Non
     first = stories[0]
     assert re.match(r"^\w{8}:r1 · T · pistol vs pistol · score 0-0 · ", first)
     lines = first.splitlines()
-    assert [line[:5] for line in lines[1:4]] == ["1:40 ", "1:25 ", "1:10 "]  # the round timer
+    assert lines[1].startswith("label: ")
+    assert [line[:5] for line in lines[2:5]] == ["1:40 ", "1:25 ", "1:10 "]  # the round timer
     assert not STEAMID.search(json.dumps(stories))
     timed = [f for f in payload["findings"] if f["kind"] == "ts.strategy"]
     assert timed and all(re.fullmatch(r"\d:\d\d", f["params"]["median_hit_at"]) for f in timed)

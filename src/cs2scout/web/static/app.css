@@ -77,4 +77,5 @@ table.usage { max-width: 520px; } table.usage th { text-align: left; font-weight
 .path { overflow-wrap: anywhere; }
 pre.story { white-space: pre-wrap; font-size: 12px; margin: 4px 0; }
 tr.story td { border-top: none; padding-top: 0; }
+.round-label { font-weight: 600; }
 .chip.round code { font-size: 11px; }

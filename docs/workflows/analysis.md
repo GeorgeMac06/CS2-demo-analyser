@@ -41,7 +41,8 @@ flowchart TD
   S4 --> ECO["eco_rounds<br/>cash and kept gear at round start,<br/>cash after buying; whole lineup"]
   ECO -->|"round_columns: buy_type, money_pp"| S4
   S4 --> OBS["Observations<br/>t_rounds, ct_rounds, demo_util"]
-  S4 --> ST["round_stories<br/>places at checkpoints, utility, opening duel, plant"]
+  S4 --> ST["round_stories<br/>label, places, routes, utility, hit, first damage,<br/>kills, plant, after-plant and CT reads"]
+  OBS -->|"the same per-round reads"| ST
   S4 --> POS["live_positions"]
   OBS --> S5["S5 Patterns<br/>mine_t, mine_ct, mine_util, mine_eco"]
   ECO --> S5

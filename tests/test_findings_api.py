@@ -9,6 +9,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
+from cs2scout.core.findings import SCHEMA_VERSION
 from cs2scout.core.positions import PlaceIndex
 from support.api import Api, finding, make_api
 from support.synth import lineup, simple_match, steamid, write_demo
@@ -137,7 +138,7 @@ def test_stats_match_what_happened(shared) -> None:
     assert total_kills == our_round_wins + total_rounds
     assert {d["score"] for d in snap["demos"]} == {"13-9", "16-14", "13-5"}
     assert snap["grids"] and all(g["extent"] for g in snap["grids"].values())
-    assert snap["schema_version"] == 5 and snap["entry"]["version"] == 1
+    assert snap["schema_version"] == SCHEMA_VERSION and snap["entry"]["version"] == 1
 
 
 def test_recompute_is_deterministic(api: Api, entry: int) -> None:
