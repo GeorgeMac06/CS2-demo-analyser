@@ -29,7 +29,7 @@ from cs2scout.ingest.files import is_candidate
 from cs2scout.jobs.import_job import run_import
 from cs2scout.store import assets
 from cs2scout.store.library import TMP_PREFIX
-from cs2scout.store.workspace import usage
+from cs2scout.store.workspace import readable, usage
 from cs2scout.web import api
 from cs2scout.web.errors import ApiError
 from cs2scout.web.figures import heatmap_figure, lineups_figure, tempo_figure, winrate_figure
@@ -39,17 +39,7 @@ router = APIRouter()
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 
-def _size(n: int | None) -> str:
-    """Bytes for people, in decimal units."""
-    value = float(n or 0)
-    for unit in ("B", "KB", "MB", "GB"):
-        if value < 1000:
-            return f"{value:.0f} {unit}" if unit == "B" else f"{value:.1f} {unit}"
-        value /= 1000
-    return f"{value:.1f} TB"
-
-
-templates.env.filters["size"] = _size
+templates.env.filters["size"] = readable
 templates.env.filters["clock"] = clock  # the in-game round timer
 TABS = ("overview", "t", "ct", "economy", "utility", "players", "demos", "brief")
 BUYS = ("pistol", "eco", "force", "full")
@@ -597,6 +587,23 @@ async def ui_settings(request: Request) -> HTMLResponse:
     except ValueError:
         return _settings_page(request, "_settings.html", error="Use whole numbers.")
     return _settings_page(request, "_settings.html", notice="Saved.")
+
+
+@router.get("/ui/storage/unused", response_class=HTMLResponse)
+def ui_storage_unused(request: Request) -> HTMLResponse:
+    return _page(request, "_free_space.html", report=api.storage_unused(request))
+
+
+@router.post("/ui/storage/free", response_class=HTMLResponse)
+async def ui_storage_free(request: Request) -> HTMLResponse:
+    form = await request.form()
+    body = api.FreeBody(demos=[str(v) for v in form.getlist("demo")],
+                        folders=[str(v) for v in form.getlist("folder")])  # fmt: skip
+    try:
+        freed = api.storage_free(body, request)
+    except ApiError as exc:
+        return _page(request, "_free_space.html", error=exc.message)
+    return _page(request, "_free_space.html", freed=freed)
 
 
 @router.get("/ui/entries/{entry_id}/ai-brief.md")

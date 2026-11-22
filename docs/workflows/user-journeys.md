@@ -17,6 +17,7 @@ flowchart LR
   ENTRY -->|AI brief tab| J5["J5 AI brief"]
   LIB -->|Settings| SET["Settings /settings"]
   SET -.->|thresholds changed| UPD["Entry offers Update now"]
+  SET -->|Free up space| FREE["Lists demos no analysis uses, with sizes<br/>removes them after the Analyst confirms"]
 ```
 
 ## J1: Create an analysis
@@ -35,7 +36,7 @@ flowchart TD
   E --> F["Analyst confirms: team name, roles, lineup overrides"]
   F --> G{"Entry for this team and map exists?"}
   G -->|Yes| H["Error ENTRY_EXISTS"]
-  G -->|No| I["Entry, team and roster saved<br/>recompute job starts"]
+  G -->|No| I["Entry, team and roster saved<br/>import job marked with the entry<br/>recompute job starts"]
   I --> J["Page polls the recompute job"]
   J --> K["Redirect to /entries/{id}, Overview tab"]
 ```
