@@ -195,6 +195,7 @@ Added 2026-11-19 (issue #6). Each round outside the pistols is a **full buy** (t
 | FR-LIB-3 | Parse results are cached per demo. Recomputing does not re-parse demos that have not changed. | Reopening an entry or changing a filter does not re-parse. |
 | FR-LIB-4 | The library survives app restarts. The source `.dem` files are not needed again after import. The original paths are remembered, and re-import is supported. | Moving the original demos away does not break an existing entry. |
 | FR-LIB-5 | The same team can have one entry per map. The team identity (roster, name) is shared across those entries. | Team "X" on Mirage and on Inferno shares its roster edits. |
+| FR-LIB-6 | The library groups entries by team. A **team page** shows the team's name, its roster (nicknames only) and one row per map: demos, rounds, won and lost (overall, T and CT), date range, a low-sample warning per side, and a link to the map's analysis. Maps are sorted by demo count. A map not computed yet shows its demo count and "not computed". No veto analysis and no stats pooled across maps. | Team "X" with Mirage (3 demos) and Inferno (1 demo) shows Mirage first, and Inferno's short side is marked low sample. |
 
 ### 4.10 Export (EXP)
 

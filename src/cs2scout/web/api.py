@@ -204,6 +204,47 @@ def get_entry(entry_id: int, request: Request) -> dict:
     }  # fmt: skip
 
 
+@router.get("/teams/{team_id}")
+def get_team(team_id: int, request: Request) -> dict:
+    """FR-LIB-6: one team's analyses, one row per map, most demos first. Nicknames only."""
+    lib = _state(request).library
+    team = lib.get_team(team_id)
+    if team is None:
+        raise not_found("team")
+    low = prefs_of(request).analysis.low_sample_rounds
+    maps = [_team_map(request, e, low) for e in lib.list_entries() if e.team_id == team_id]
+    order = {"core": 0, "standin": 1}  # excluded players are left out
+    players = sorted(
+        (r for r in lib.roster(team_id) if r["role"] in order),
+        key=lambda r: (order[r["role"]], (r["last_nick"] or "").casefold()),
+    )
+    return {
+        "id": team_id, "name": team["display_name"], "low_sample_rounds": low,
+        "roster": [{"nick": r["last_nick"] or "?", "role": r["role"]} for r in players],
+        "maps": sorted(maps, key=lambda m: (-m["demo_count"], m["map"])),
+    }  # fmt: skip
+
+
+def _team_map(request: Request, entry, low_sample_rounds: int) -> dict:
+    """An entry's row on the team page: its sample and record, from the saved analysis."""
+    row = _entry_json(request, entry)
+    vdir = _state(request).library.current_version_dir(entry.entry_id)
+    if vdir is None:
+        return row | {"computed": False}
+    rounds = filtered_snapshot(vdir, RoundFilter())["round_index"]
+    sides = {}
+    for side in ("T", "CT"):
+        mine = [r for r in rounds if r["side"] == side]
+        won = sum(1 for r in mine if r["won"])
+        sides[side] = {"rounds": len(mine), "won": won, "lost": len(mine) - won}
+    won = sum(s["won"] for s in sides.values())
+    return row | {
+        "computed": True, "rounds": len(rounds), "won": won, "lost": len(rounds) - won,
+        "sides": sides,
+        "low_sample": [side for side, s in sides.items() if s["rounds"] < low_sample_rounds],
+    }  # fmt: skip
+
+
 class RenameEntry(BaseModel):
     name: str = Field(min_length=1, max_length=120)
 

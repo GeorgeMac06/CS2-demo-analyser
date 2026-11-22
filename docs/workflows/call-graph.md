@@ -195,6 +195,10 @@ flowchart TD
   U1(["Open an analysis<br/>GET /entries/{id}"]):::user --> EP["web/pages.py<br/>entry_page()"]:::web
   U2(["Click a tab or change a filter<br/>GET /ui/entries/{id}/tab/{tab}"]):::user --> UT["web/pages.py<br/>ui_tab() → _filter()"]:::web
   EP --> GE["web/api.py<br/>get_entry()"]:::web
+  U0(["Open a team<br/>GET /teams/{id}"]):::user --> TP["web/pages.py<br/>team_page()"]:::web
+  TP --> GT["web/api.py<br/>get_team() → _team_map() per map"]:::web
+  GT --> VD
+  GT --> FS
   EP --> TC
   UT --> TC["web/pages.py<br/>_tab_context()"]:::web
   TC --> SN["web/pages.py<br/>_snapshot()"]:::web

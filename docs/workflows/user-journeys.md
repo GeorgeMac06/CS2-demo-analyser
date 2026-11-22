@@ -9,6 +9,9 @@ What the Analyst does, page by page. The journeys J1–J5 are defined in the
 flowchart LR
   LIB["Library page /"] -->|New analysis| J1["J1 Create an analysis"]
   LIB -->|open an entry| ENTRY["Entry page /entries/{id}"]
+  LIB -->|team name| TEAM["Team page /teams/{id}<br/>one row per map"]
+  TEAM -->|a map| ENTRY
+  ENTRY -->|team name| TEAM
   J1 --> ENTRY
   ENTRY -->|Add demos| J2["J2 Add demos"]
   J2 --> ENTRY
